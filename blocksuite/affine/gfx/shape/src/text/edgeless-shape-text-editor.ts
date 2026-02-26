@@ -280,6 +280,21 @@ export class EdgelessShapeTextEditor extends WithDisposable(ShadowlessElement) {
             this._unmount();
           }
         );
+
+        this.disposables.addFromEvent(
+          this.inlineEditorContainer,
+          'compositionupdate',
+          () => {
+            this._updateElementWH();
+          }
+        );
+        this.disposables.addFromEvent(
+          this.inlineEditorContainer,
+          'compositionend',
+          () => {
+            this._updateElementWH();
+          }
+        );
       })
       .catch(console.error);
 
