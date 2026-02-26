@@ -1,8 +1,9 @@
 import type { MindMapView } from '@blocksuite/affine/gfx/mindmap';
+import { mountShapeTextEditor } from '@blocksuite/affine/gfx/shape';
 import { LayoutType, type MindmapElementModel } from '@blocksuite/affine-model';
 import { Bound } from '@blocksuite/global/gfx';
 import type { GfxController } from '@blocksuite/std/gfx';
-import { beforeEach, describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { click, pointermove, wait } from '../utils/common.js';
 import { getDocRootBlock } from '../utils/edgeless.js';
@@ -34,6 +35,39 @@ describe('mindmap', () => {
     gfx = getDocRootBlock(window.doc, window.editor, 'edgeless').gfx;
 
     return cleanup;
+  });
+
+  test('should update mindmap node editor size on compositionupdate', async () => {
+    const mindmapId = gfx.surface!.addElement({
+      type: 'mindmap',
+      children: {
+        text: 'root',
+      },
+    });
+    const mindmap = () => gfx.getElementById(mindmapId) as MindmapElementModel;
+
+    const root = getDocRootBlock(window.doc, window.editor, 'edgeless');
+    const rootNode = mindmap().tree.element;
+
+    mountShapeTextEditor(rootNode, root);
+    await wait();
+
+    const shapeEditor = root.querySelector('edgeless-shape-text-editor') as
+      | (HTMLElement & { inlineEditorContainer?: HTMLElement })
+      | null;
+
+    expect(shapeEditor).not.toBeNull();
+
+    const updateSpy = vi.spyOn(shapeEditor as any, '_updateElementWH');
+
+    const compositionUpdate = new CompositionEvent('compositionupdate', {
+      data: '拼',
+      bubbles: true,
+    });
+
+    shapeEditor!.inlineEditorContainer?.dispatchEvent(compositionUpdate);
+
+    expect(updateSpy).toHaveBeenCalled();
   });
 
   test('delete the root node should remove all children', async () => {
