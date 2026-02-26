@@ -430,7 +430,9 @@ fn parse_markdown_inner(markdown: &str) -> Result<MarkdownDocument, ParseError> 
           table_handled = true;
         }
         Event::Html(html) | Event::InlineHtml(html) => {
-          if let Some(text) = extract_wrapped_html_text(html) {
+          if is_html_comment(html) || is_iframe_end_tag(html) {
+            // Ignore HTML comments and iframe end tags inside table cells.
+          } else if let Some(text) = extract_wrapped_html_text(html) {
             state.push_text(&text);
           } else if is_html_line_break(html) {
             state.push_text("\n");
@@ -621,6 +623,9 @@ fn parse_markdown_inner(markdown: &str) -> Result<MarkdownDocument, ParseError> 
         }
       }
       Event::Html(html) | Event::InlineHtml(html) => {
+        if is_html_comment(&html) || is_iframe_end_tag(&html) {
+          continue;
+        }
         if is_ai_editable_comment(&html) {
           continue;
         }
@@ -773,6 +778,9 @@ fn validate_markdown_inner(markdown: &str) -> Result<(), ParseError> {
     match event {
       Event::Start(tag) => ensure_supported_tag(&tag)?,
       Event::Html(html) | Event::InlineHtml(html) => {
+        if is_html_comment(&html) || is_iframe_end_tag(&html) {
+          continue;
+        }
         if is_ai_editable_comment(&html) {
           continue;
         }
@@ -934,6 +942,15 @@ fn is_ai_editable_comment(html: &str) -> bool {
   }
   let body = trimmed.trim_start_matches("<!--").trim_end_matches("-->").trim();
   body.contains("block_id=") && body.contains("flavour=")
+}
+
+fn is_html_comment(html: &str) -> bool {
+  let trimmed = html.trim();
+  trimmed.starts_with("<!--") && trimmed.ends_with("-->")
+}
+
+fn is_iframe_end_tag(html: &str) -> bool {
+  parse_html_tag(html).is_some_and(|tag| tag.closing && tag.name == "iframe")
 }
 
 fn is_html_line_break(html: &str) -> bool {
@@ -1712,6 +1729,13 @@ mod tests {
   #[test]
   fn test_validate_markdown_allows_html_list() {
     let markdown = "<ul><li>Item 1</li><li>Item 2</li></ul>";
+    let result = validate_markdown(markdown);
+    assert!(result.is_ok());
+  }
+
+  #[test]
+  fn test_validate_markdown_allows_html_comment() {
+    let markdown = "# Title\n\n<!-- omit from toc -->\n\nContent.";
     let result = validate_markdown(markdown);
     assert!(result.is_ok());
   }

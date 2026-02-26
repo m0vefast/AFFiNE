@@ -8,24 +8,56 @@ use std::collections::HashMap;
 use super::{
   super::{
     block_spec::{TreeNode, count_tree_nodes, text_delta_eq},
-    blocksuite::{collect_child_ids, find_child_id_by_flavour},
+    blocksuite::{collect_child_ids, find_child_id_by_flavour, get_string},
     markdown::{MAX_BLOCKS, parse_markdown_blocks},
+    schema::{PROP_BACKGROUND, PROP_DISPLAY_MODE, PROP_ELEMENTS, PROP_HIDDEN, PROP_INDEX, PROP_XYWH, SURFACE_FLAVOUR},
   },
-  builder::{ApplyBlockOptions, apply_block_spec, insert_block_tree, insert_children},
+  builder::{
+    ApplyBlockOptions, BOXED_NATIVE_TYPE, NOTE_BG_DARK, NOTE_BG_LIGHT, apply_block_spec, boxed_empty_map,
+    insert_block_map, insert_block_tree, insert_children, insert_sys_fields, insert_text, note_background_map,
+    text_ops_from_plain,
+  },
   *,
 };
 
 const MAX_LCS_CELLS: usize = 2_000_000;
 
 #[derive(Debug, Clone)]
+enum NodeSpec {
+  Supported(BlockSpec),
+  /// A block flavour we don't support for markdown diffing/updating (e.g.
+  /// `affine:database`).
+  ///
+  /// These nodes are treated as opaque: we preserve them and never modify their
+  /// properties/children.
+  Opaque {
+    flavour: String,
+  },
+}
+
+#[derive(Debug, Clone)]
 struct StoredNode {
   id: String,
-  spec: BlockSpec,
+  spec: NodeSpec,
   children: Vec<StoredNode>,
 }
 
 impl TreeNode for StoredNode {
   fn children(&self) -> &[StoredNode] {
+    &self.children
+  }
+}
+
+#[derive(Debug, Clone)]
+struct TargetNode {
+  /// Optional block id marker from exported markdown (AI-editable markers).
+  id_hint: Option<String>,
+  spec: NodeSpec,
+  children: Vec<TargetNode>,
+}
+
+impl TreeNode for TargetNode {
+  fn children(&self) -> &[TargetNode] {
     &self.children
   }
 }
@@ -59,8 +91,24 @@ enum PatchOp {
 /// # Returns
 /// A binary vector representing only the delta (changes) to apply
 pub fn update_doc(existing_binary: &[u8], new_markdown: &str, doc_id: &str) -> Result<Vec<u8>, ParseError> {
-  let mut new_nodes = parse_markdown_blocks(new_markdown)?;
-  let state = load_doc_state(existing_binary, doc_id)?;
+  let state = match load_doc_state(existing_binary, doc_id) {
+    Ok(state) => state,
+    Err(ParseError::ParserError(msg))
+      if matches!(
+        msg.as_str(),
+        "blocks map is empty" | "page block not found" | "note block not found"
+      ) =>
+    {
+      // The existing doc may be a stub/partial document (e.g. created by references)
+      // and doesn't contain the canonical page/note structure yet. In that
+      // case, initialize the doc from the markdown instead of failing hard.
+      let new_nodes = parse_markdown_blocks(new_markdown)?;
+      return init_doc_from_markdown(existing_binary, new_markdown, doc_id, &new_nodes);
+    }
+    Err(err) => return Err(err),
+  };
+
+  let mut new_nodes = parse_markdown_targets(new_markdown)?;
 
   check_limits(&state.blocks, &new_nodes)?;
 
@@ -72,6 +120,315 @@ pub fn update_doc(existing_binary: &[u8], new_markdown: &str, doc_id: &str) -> R
   sync_children(&state.doc, &mut blocks_map, &state.note_id, &new_children)?;
 
   Ok(state.doc.encode_state_as_update_v1(&state_before)?)
+}
+
+#[derive(Debug, Clone)]
+struct BlockMarker {
+  id: String,
+  flavour: String,
+  end: bool,
+}
+
+fn parse_block_marker_line(line: &str) -> Option<BlockMarker> {
+  let trimmed = line.trim();
+  if !trimmed.starts_with("<!--") || !trimmed.ends_with("-->") {
+    return None;
+  }
+  let body = trimmed.trim_start_matches("<!--").trim_end_matches("-->").trim();
+  if !body.contains("block_id=") || !body.contains("flavour=") {
+    return None;
+  }
+
+  let mut id: Option<String> = None;
+  let mut flavour: Option<String> = None;
+  let mut end = false;
+
+  for token in body.split_whitespace() {
+    if token == "end" || token == "type=end" || token == "end=true" {
+      end = true;
+      continue;
+    }
+    if let Some(value) = token.strip_prefix("block_id=") {
+      if !value.is_empty() {
+        id = Some(value.to_string());
+      }
+      continue;
+    }
+    if let Some(value) = token.strip_prefix("flavour=") {
+      if !value.is_empty() {
+        flavour = Some(value.to_string());
+      }
+      continue;
+    }
+  }
+
+  Some(BlockMarker {
+    id: id?,
+    flavour: flavour?,
+    end,
+  })
+}
+
+fn should_preserve_marker_flavour(flavour: &str) -> bool {
+  matches!(flavour, "affine:database" | "affine:callout")
+}
+
+fn parse_markdown_targets(markdown: &str) -> Result<Vec<TargetNode>, ParseError> {
+  // Fast path: no markers, behave like the original implementation.
+  if !markdown.contains("block_id=") || !markdown.contains("flavour=") {
+    let blocks = parse_markdown_blocks(markdown)?;
+    return Ok(blocks.into_iter().map(|b| target_from_block_node(b, None)).collect());
+  }
+
+  // Split the markdown by marker comments. For most blocks, a marker indicates
+  // the start of a block. For preserved blocks (e.g. database), an optional end
+  // marker can be emitted so users can append new content after the preserved
+  // section without needing to add markers manually.
+  let mut segments: Vec<(Option<BlockMarker>, String)> = Vec::new();
+  let mut current_marker: Option<BlockMarker> = None;
+  let mut current_body = String::new();
+  let mut saw_marker = false;
+
+  for line in markdown.lines() {
+    if let Some(marker) = parse_block_marker_line(line) {
+      saw_marker = true;
+      if marker.end {
+        if current_marker.is_some() || !current_body.is_empty() {
+          segments.push((current_marker.take(), std::mem::take(&mut current_body)));
+        }
+        // Close the marker scope; subsequent lines belong to an unmarked segment.
+        current_marker = None;
+        continue;
+      }
+
+      if current_marker.is_some() || !current_body.is_empty() {
+        segments.push((current_marker.take(), std::mem::take(&mut current_body)));
+      }
+      current_marker = Some(marker);
+      continue;
+    }
+
+    current_body.push_str(line);
+    current_body.push('\n');
+  }
+
+  if current_marker.is_some() || !current_body.is_empty() {
+    segments.push((current_marker.take(), current_body));
+  }
+
+  if !saw_marker {
+    let blocks = parse_markdown_blocks(markdown)?;
+    return Ok(blocks.into_iter().map(|b| target_from_block_node(b, None)).collect());
+  }
+
+  let mut out: Vec<TargetNode> = Vec::new();
+  for (marker, body) in segments {
+    if let Some(marker) = marker {
+      let preserve =
+        should_preserve_marker_flavour(&marker.flavour) || BlockFlavour::from_str(&marker.flavour).is_none();
+      if preserve {
+        out.push(TargetNode {
+          id_hint: Some(marker.id),
+          spec: NodeSpec::Opaque {
+            flavour: marker.flavour,
+          },
+          children: Vec::new(),
+        });
+        continue;
+      }
+
+      let blocks = parse_markdown_blocks(&body)?;
+      for (idx, block) in blocks.into_iter().enumerate() {
+        let id_hint = if idx == 0 { Some(marker.id.clone()) } else { None };
+        out.push(target_from_block_node(block, id_hint));
+      }
+      continue;
+    }
+
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+      continue;
+    }
+
+    let blocks = parse_markdown_blocks(&body)?;
+    for block in blocks {
+      out.push(target_from_block_node(block, None));
+    }
+  }
+
+  Ok(out)
+}
+
+fn target_from_block_node(node: BlockNode, id_hint: Option<String>) -> TargetNode {
+  TargetNode {
+    id_hint,
+    spec: NodeSpec::Supported(node.spec),
+    children: node
+      .children
+      .into_iter()
+      .map(|child| target_from_block_node(child, None))
+      .collect(),
+  }
+}
+
+fn target_node_to_block_node(node: &TargetNode) -> Result<BlockNode, ParseError> {
+  let NodeSpec::Supported(spec) = &node.spec else {
+    return Err(ParseError::ParserError("cannot_insert_opaque_block".into()));
+  };
+  Ok(BlockNode {
+    spec: spec.clone(),
+    children: node
+      .children
+      .iter()
+      .map(target_node_to_block_node)
+      .collect::<Result<Vec<_>, _>>()?,
+  })
+}
+
+fn init_doc_from_markdown(
+  existing_binary: &[u8],
+  new_markdown: &str,
+  doc_id: &str,
+  blocks: &[BlockNode],
+) -> Result<Vec<u8>, ParseError> {
+  let doc = load_doc(existing_binary, Some(doc_id))?;
+  let state_before = doc.get_state_vector();
+  let mut blocks_map = doc.get_or_create_map("blocks")?;
+
+  let title = derive_title_from_markdown(new_markdown).unwrap_or_else(|| "Untitled".to_string());
+  // Prefer reusing an existing page block if the doc already has one (but is
+  // missing surface/note). This avoids creating multiple page roots when
+  // recovering from partial documents.
+  if !blocks_map.is_empty() {
+    let index = build_block_index(&blocks_map);
+    if let Some(page_id) = find_block_id_by_flavour(&index.block_pool, PAGE_FLAVOUR) {
+      insert_page_children(&doc, &mut blocks_map, &page_id, &title, blocks)?;
+      return Ok(doc.encode_state_as_update_v1(&state_before)?);
+    }
+  }
+
+  insert_page_doc(&doc, &mut blocks_map, &title, blocks)?;
+
+  Ok(doc.encode_state_as_update_v1(&state_before)?)
+}
+
+fn derive_title_from_markdown(markdown: &str) -> Option<String> {
+  for line in markdown.lines() {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+      continue;
+    }
+    if let Some(rest) = trimmed.strip_prefix("# ") {
+      let title = rest.trim();
+      if !title.is_empty() {
+        return Some(title.to_string());
+      }
+    }
+  }
+  None
+}
+
+fn insert_page_doc(doc: &Doc, blocks_map: &mut Map, title: &str, blocks: &[BlockNode]) -> Result<(), ParseError> {
+  let page_id = nanoid::nanoid!();
+  let surface_id = nanoid::nanoid!();
+  let note_id = nanoid::nanoid!();
+
+  // Insert root blocks first to establish stable IDs.
+  let mut page_map = insert_block_map(doc, blocks_map, &page_id)?;
+  let mut surface_map = insert_block_map(doc, blocks_map, &surface_id)?;
+  let mut note_map = insert_block_map(doc, blocks_map, &note_id)?;
+
+  // Create content blocks under note.
+  let content_ids = insert_block_trees(doc, blocks_map, blocks)?;
+
+  // Page block.
+  insert_sys_fields(&mut page_map, &page_id, PAGE_FLAVOUR)?;
+  insert_children(doc, &mut page_map, &[surface_id.clone(), note_id.clone()])?;
+  insert_text(doc, &mut page_map, PROP_TITLE, &text_ops_from_plain(title))?;
+
+  // Surface block.
+  insert_sys_fields(&mut surface_map, &surface_id, SURFACE_FLAVOUR)?;
+  insert_children(doc, &mut surface_map, &[])?;
+  let mut boxed = boxed_empty_map(doc)?;
+  surface_map.insert(PROP_ELEMENTS.to_string(), Value::Map(boxed.clone()))?;
+  boxed.insert("type".to_string(), Any::String(BOXED_NATIVE_TYPE.to_string()))?;
+  let value = doc.create_map()?;
+  boxed.insert("value".to_string(), Value::Map(value))?;
+
+  // Note block.
+  insert_sys_fields(&mut note_map, &note_id, NOTE_FLAVOUR)?;
+  insert_children(doc, &mut note_map, &content_ids)?;
+  let mut background = note_background_map(doc)?;
+  note_map.insert(PROP_BACKGROUND.to_string(), Value::Map(background.clone()))?;
+  background.insert("light".to_string(), Any::String(NOTE_BG_LIGHT.to_string()))?;
+  background.insert("dark".to_string(), Any::String(NOTE_BG_DARK.to_string()))?;
+  note_map.insert(PROP_XYWH.to_string(), Any::String("[0,0,800,95]".to_string()))?;
+  note_map.insert(PROP_INDEX.to_string(), Any::String("a0".to_string()))?;
+  note_map.insert(PROP_HIDDEN.to_string(), Any::False)?;
+  note_map.insert(PROP_DISPLAY_MODE.to_string(), Any::String("both".to_string()))?;
+
+  Ok(())
+}
+
+fn insert_page_children(
+  doc: &Doc,
+  blocks_map: &mut Map,
+  page_id: &str,
+  title: &str,
+  blocks: &[BlockNode],
+) -> Result<(), ParseError> {
+  let surface_id = nanoid::nanoid!();
+  let note_id = nanoid::nanoid!();
+
+  // Insert root blocks first to establish stable IDs.
+  let mut surface_map = insert_block_map(doc, blocks_map, &surface_id)?;
+  let mut note_map = insert_block_map(doc, blocks_map, &note_id)?;
+
+  // Create content blocks under note.
+  let content_ids = insert_block_trees(doc, blocks_map, blocks)?;
+
+  let Some(mut page_map) = blocks_map.get(page_id).and_then(|v| v.to_map()) else {
+    return Err(ParseError::ParserError("page block not found".into()));
+  };
+
+  // Page block.
+  insert_sys_fields(&mut page_map, page_id, PAGE_FLAVOUR)?;
+  insert_children(doc, &mut page_map, &[surface_id.clone(), note_id.clone()])?;
+  if page_map.get(PROP_TITLE).is_none() {
+    insert_text(doc, &mut page_map, PROP_TITLE, &text_ops_from_plain(title))?;
+  }
+
+  // Surface block.
+  insert_sys_fields(&mut surface_map, &surface_id, SURFACE_FLAVOUR)?;
+  insert_children(doc, &mut surface_map, &[])?;
+  let mut boxed = boxed_empty_map(doc)?;
+  surface_map.insert(PROP_ELEMENTS.to_string(), Value::Map(boxed.clone()))?;
+  boxed.insert("type".to_string(), Any::String(BOXED_NATIVE_TYPE.to_string()))?;
+  let value = doc.create_map()?;
+  boxed.insert("value".to_string(), Value::Map(value))?;
+
+  // Note block.
+  insert_sys_fields(&mut note_map, &note_id, NOTE_FLAVOUR)?;
+  insert_children(doc, &mut note_map, &content_ids)?;
+  let mut background = note_background_map(doc)?;
+  note_map.insert(PROP_BACKGROUND.to_string(), Value::Map(background.clone()))?;
+  background.insert("light".to_string(), Any::String(NOTE_BG_LIGHT.to_string()))?;
+  background.insert("dark".to_string(), Any::String(NOTE_BG_DARK.to_string()))?;
+  note_map.insert(PROP_XYWH.to_string(), Any::String("[0,0,800,95]".to_string()))?;
+  note_map.insert(PROP_INDEX.to_string(), Any::String("a0".to_string()))?;
+  note_map.insert(PROP_HIDDEN.to_string(), Any::False)?;
+  note_map.insert(PROP_DISPLAY_MODE.to_string(), Any::String("both".to_string()))?;
+
+  Ok(())
+}
+
+fn insert_block_trees(doc: &Doc, blocks_map: &mut Map, blocks: &[BlockNode]) -> Result<Vec<String>, ParseError> {
+  let mut ids = Vec::with_capacity(blocks.len());
+  for block in blocks {
+    let id = insert_block_tree(doc, blocks_map, block)?;
+    ids.push(id);
+  }
+  Ok(ids)
 }
 
 fn load_doc_state(binary: &[u8], doc_id: &str) -> Result<DocState, ParseError> {
@@ -110,14 +467,31 @@ fn load_doc_state(binary: &[u8], doc_id: &str) -> Result<DocState, ParseError> {
 }
 
 fn build_stored_tree(block_id: &str, block: &Map, pool: &HashMap<String, Map>) -> Result<StoredNode, ParseError> {
-  let spec = BlockSpec::from_block_map(block)?;
-
   let child_ids = collect_child_ids(block);
+  let flavour = get_string(block, "sys:flavour").unwrap_or_default();
+
+  let spec = match BlockSpec::from_block_map(block) {
+    Ok(spec) => spec,
+    Err(ParseError::ParserError(msg)) if msg.starts_with("unsupported block flavour:") => {
+      return Ok(StoredNode {
+        id: block_id.to_string(),
+        spec: NodeSpec::Opaque { flavour },
+        children: Vec::new(),
+      });
+    }
+    Err(err) => return Err(err),
+  };
+
+  // Only list/callout are supported as containers for markdown diffing.
+  // For any other block with children, treat as opaque so we never corrupt it.
   if !child_ids.is_empty() && !matches!(spec.flavour, BlockFlavour::List | BlockFlavour::Callout) {
-    return Err(ParseError::ParserError(format!(
-      "unsupported children on block: {block_id}"
-    )));
+    return Ok(StoredNode {
+      id: block_id.to_string(),
+      spec: NodeSpec::Opaque { flavour },
+      children: Vec::new(),
+    });
   }
+
   let mut children = Vec::new();
   for child_id in child_ids {
     let child_block = pool
@@ -128,7 +502,7 @@ fn build_stored_tree(block_id: &str, block: &Map, pool: &HashMap<String, Map>) -
 
   Ok(StoredNode {
     id: block_id.to_string(),
-    spec,
+    spec: NodeSpec::Supported(spec),
     children,
   })
 }
@@ -137,7 +511,7 @@ fn sync_nodes(
   doc: &Doc,
   blocks_map: &mut Map,
   current: &[StoredNode],
-  target: &mut [BlockNode],
+  target: &mut [TargetNode],
 ) -> Result<Vec<String>, ParseError> {
   let ops = diff_blocks(current, target);
   let mut new_children = Vec::new();
@@ -148,29 +522,47 @@ fn sync_nodes(
       PatchOp::Keep(old_idx, new_idx) => {
         let old_node = &current[old_idx];
         let new_node = &target[new_idx];
-        update_block_props(doc, blocks_map, old_node, &new_node.spec, true)?;
-        let child_ids = sync_nodes(doc, blocks_map, &old_node.children, &mut new_node.children.clone())?;
-        sync_children(doc, blocks_map, &old_node.id, &child_ids)?;
+        if let (NodeSpec::Supported(old_spec), NodeSpec::Supported(new_spec)) = (&old_node.spec, &new_node.spec) {
+          update_block_props(doc, blocks_map, &old_node.id, old_spec, new_spec, true)?;
+          let child_ids = sync_nodes(doc, blocks_map, &old_node.children, &mut new_node.children.clone())?;
+          sync_children(doc, blocks_map, &old_node.id, &child_ids)?;
+        } else {
+          // Preserve opaque blocks (and any mismatched marker blocks) as-is.
+          // Don't touch their properties or children ordering.
+        }
         new_children.push(old_node.id.clone());
       }
       PatchOp::Update(old_idx, new_idx) => {
         let old_node = &current[old_idx];
         let new_node = &target[new_idx];
-        update_block_props(doc, blocks_map, old_node, &new_node.spec, false)?;
-        let child_ids = sync_nodes(doc, blocks_map, &old_node.children, &mut new_node.children.clone())?;
-        sync_children(doc, blocks_map, &old_node.id, &child_ids)?;
+        if let (NodeSpec::Supported(old_spec), NodeSpec::Supported(new_spec)) = (&old_node.spec, &new_node.spec) {
+          update_block_props(doc, blocks_map, &old_node.id, old_spec, new_spec, false)?;
+          let child_ids = sync_nodes(doc, blocks_map, &old_node.children, &mut new_node.children.clone())?;
+          sync_children(doc, blocks_map, &old_node.id, &child_ids)?;
+        } else {
+          // Opaque blocks are never updated from markdown.
+        }
         new_children.push(old_node.id.clone());
       }
       PatchOp::Insert(new_idx) => {
-        let new_id = insert_block_tree(doc, blocks_map, &target[new_idx])?;
-        new_children.push(new_id);
+        if let Ok(node) = target_node_to_block_node(&target[new_idx]) {
+          let new_id = insert_block_tree(doc, blocks_map, &node)?;
+          new_children.push(new_id);
+        }
       }
       PatchOp::Delete(old_idx) => {
         let node = &current[old_idx];
-        if node.spec.flavour == BlockFlavour::Callout {
-          new_children.push(node.id.clone());
-        } else {
-          collect_tree_ids(node, &mut to_remove);
+        match &node.spec {
+          NodeSpec::Opaque { .. } => {
+            // Never delete opaque blocks when syncing from markdown. They might contain
+            // rich data that can't be represented in markdown, so keeping them
+            // avoids data loss.
+            new_children.push(node.id.clone());
+          }
+          NodeSpec::Supported(spec) if spec.flavour == BlockFlavour::Callout => {
+            new_children.push(node.id.clone());
+          }
+          NodeSpec::Supported(_) => collect_tree_ids(node, &mut to_remove),
         }
       }
     }
@@ -183,7 +575,7 @@ fn sync_nodes(
   Ok(new_children)
 }
 
-fn diff_blocks(current: &[StoredNode], target: &[BlockNode]) -> Vec<PatchOp> {
+fn diff_blocks(current: &[StoredNode], target: &[TargetNode]) -> Vec<PatchOp> {
   let old_len = current.len();
   let new_len = target.len();
 
@@ -198,10 +590,10 @@ fn diff_blocks(current: &[StoredNode], target: &[BlockNode]) -> Vec<PatchOp> {
 
   for i in 1..=old_len {
     for j in 1..=new_len {
-      let old_spec = &current[i - 1].spec;
-      let new_spec = &target[j - 1].spec;
+      let old_node = &current[i - 1];
+      let new_node = &target[j - 1];
 
-      if old_spec.is_exact(new_spec) {
+      if nodes_align(old_node, new_node) {
         lcs[i][j] = lcs[i - 1][j - 1] + 1;
       } else {
         lcs[i][j] = std::cmp::max(lcs[i - 1][j], lcs[i][j - 1]);
@@ -215,14 +607,18 @@ fn diff_blocks(current: &[StoredNode], target: &[BlockNode]) -> Vec<PatchOp> {
 
   while i > 0 || j > 0 {
     if i > 0 && j > 0 {
-      let old_spec = &current[i - 1].spec;
-      let new_spec = &target[j - 1].spec;
+      let old_node = &current[i - 1];
+      let new_node = &target[j - 1];
 
-      if old_spec.is_exact(new_spec) {
-        ops.push(PatchOp::Keep(i - 1, j - 1));
+      if nodes_align(old_node, new_node) {
+        if nodes_should_update(old_node, new_node) {
+          ops.push(PatchOp::Update(i - 1, j - 1));
+        } else {
+          ops.push(PatchOp::Keep(i - 1, j - 1));
+        }
         i -= 1;
         j -= 1;
-      } else if old_spec.is_similar(new_spec)
+      } else if nodes_similar(old_node, new_node)
         && lcs[i - 1][j - 1] >= lcs[i - 1][j]
         && lcs[i - 1][j - 1] >= lcs[i][j - 1]
       {
@@ -249,15 +645,60 @@ fn diff_blocks(current: &[StoredNode], target: &[BlockNode]) -> Vec<PatchOp> {
   ops
 }
 
+fn nodes_align(old_node: &StoredNode, new_node: &TargetNode) -> bool {
+  if marker_matches(old_node, new_node) {
+    return true;
+  }
+  match (&old_node.spec, &new_node.spec) {
+    (NodeSpec::Supported(old_spec), NodeSpec::Supported(new_spec)) => old_spec.is_exact(new_spec),
+    _ => false,
+  }
+}
+
+fn nodes_should_update(old_node: &StoredNode, new_node: &TargetNode) -> bool {
+  if marker_matches(old_node, new_node) {
+    return match (&old_node.spec, &new_node.spec) {
+      (NodeSpec::Supported(old_spec), NodeSpec::Supported(new_spec)) => !old_spec.is_exact(new_spec),
+      _ => false,
+    };
+  }
+  false
+}
+
+fn nodes_similar(old_node: &StoredNode, new_node: &TargetNode) -> bool {
+  match (&old_node.spec, &new_node.spec) {
+    (NodeSpec::Supported(old_spec), NodeSpec::Supported(new_spec)) => old_spec.is_similar(new_spec),
+    _ => false,
+  }
+}
+
+fn marker_matches(old_node: &StoredNode, new_node: &TargetNode) -> bool {
+  let Some(id) = new_node.id_hint.as_deref() else {
+    return false;
+  };
+  if id != old_node.id.as_str() {
+    return false;
+  }
+  node_flavour_str(&old_node.spec) == node_flavour_str(&new_node.spec)
+}
+
+fn node_flavour_str(spec: &NodeSpec) -> &str {
+  match spec {
+    NodeSpec::Supported(spec) => spec.flavour.as_str(),
+    NodeSpec::Opaque { flavour } => flavour.as_str(),
+  }
+}
+
 fn update_block_props(
   doc: &Doc,
   blocks_map: &mut Map,
-  node: &StoredNode,
+  node_id: &str,
+  current: &BlockSpec,
   target: &BlockSpec,
   preserve_text: bool,
 ) -> Result<(), ParseError> {
-  let Some(mut block) = blocks_map.get(&node.id).and_then(|v| v.to_map()) else {
-    return Err(ParseError::ParserError(format!("Block {} not found", node.id)));
+  let Some(mut block) = blocks_map.get(node_id).and_then(|v| v.to_map()) else {
+    return Err(ParseError::ParserError(format!("Block {} not found", node_id)));
   };
 
   let preserve = match target.flavour {
@@ -266,7 +707,7 @@ fn update_block_props(
     | BlockFlavour::Bookmark
     | BlockFlavour::EmbedYoutube
     | BlockFlavour::EmbedIframe => preserve_text,
-    _ => preserve_text || text_delta_eq(&node.spec.text, &target.text),
+    _ => preserve_text || text_delta_eq(&current.text, &target.text),
   };
 
   apply_block_spec(
@@ -302,7 +743,7 @@ fn collect_tree_ids(node: &StoredNode, output: &mut Vec<String>) {
   }
 }
 
-fn check_limits(current: &[StoredNode], target: &[BlockNode]) -> Result<(), ParseError> {
+fn check_limits(current: &[StoredNode], target: &[TargetNode]) -> Result<(), ParseError> {
   let current_count = count_tree_nodes(current);
   let target_count = count_tree_nodes(target);
 
@@ -319,7 +760,7 @@ fn check_limits(current: &[StoredNode], target: &[BlockNode]) -> Result<(), Pars
 
 #[cfg(test)]
 mod tests {
-  use y_octo::{Any, DocOptions, TextDeltaOp, TextInsert};
+  use y_octo::{Any, DocOptions, StateVector, TextDeltaOp, TextInsert};
 
   use super::{super::builder::text_ops_from_plain, *};
   use crate::doc_parser::{
@@ -645,6 +1086,233 @@ mod tests {
 
     let result = update_doc(&[0, 0], markdown, doc_id);
     assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_update_ydoc_fallback_when_blocks_empty() {
+    let doc_id = "stub-empty-blocks";
+    let markdown = "# From Markdown\n\nHello from markdown.";
+
+    // Build a valid ydoc update that results in an empty `blocks` map.
+    // NOTE: yjs/y-octo may encode a completely empty doc as `[0,0]`, which we treat
+    // as empty/invalid. We intentionally insert + remove a temp key so the
+    // update is non-empty while the final map is empty.
+    let doc = DocOptions::new().with_guid(doc_id.to_string()).build();
+    let mut blocks = doc.get_or_create_map("blocks").expect("create blocks map");
+    blocks
+      .insert("tmp".to_string(), Any::String("1".to_string()))
+      .expect("insert temp");
+    blocks.remove("tmp");
+    let stub_bin = doc
+      .encode_state_as_update_v1(&StateVector::default())
+      .expect("encode stub update");
+    assert!(
+      !stub_bin.is_empty() && stub_bin.as_slice() != [0, 0],
+      "stub update should not be empty update"
+    );
+
+    let delta = update_doc(&stub_bin, markdown, doc_id).expect("fallback delta");
+    assert!(!delta.is_empty(), "delta should contain changes");
+
+    let mut updated = DocOptions::new().with_guid(doc_id.to_string()).build();
+    updated
+      .apply_update_from_binary_v1(&stub_bin)
+      .expect("apply stub update");
+    updated
+      .apply_update_from_binary_v1(&delta)
+      .expect("apply fallback delta");
+
+    let blocks_map = updated.get_map("blocks").expect("blocks map exists");
+
+    let mut page: Option<Map> = None;
+    for (_, value) in blocks_map.iter() {
+      if let Some(block_map) = value.to_map()
+        && get_string(&block_map, "sys:flavour").as_deref() == Some(PAGE_FLAVOUR)
+      {
+        page = Some(block_map);
+        break;
+      }
+    }
+
+    let page = page.expect("page block created");
+    assert_eq!(
+      get_string(&page, "prop:title").as_deref(),
+      Some("From Markdown"),
+      "page title should be derived from markdown H1"
+    );
+
+    let index = build_block_index(&blocks_map);
+    let note_id = find_child_id_by_flavour(&page, &index.block_pool, NOTE_FLAVOUR).expect("note child exists");
+
+    let note = index.block_pool.get(&note_id).expect("note block exists").clone();
+    assert!(
+      !collect_child_ids(&note).is_empty(),
+      "note should contain imported content blocks"
+    );
+
+    let full_bin = updated
+      .encode_state_as_update_v1(&StateVector::default())
+      .expect("encode full doc");
+    let md = parse_doc_to_markdown(full_bin, doc_id.to_string(), false, None).expect("render markdown");
+    assert!(md.markdown.contains("Hello from markdown."));
+  }
+
+  #[test]
+  fn test_update_ydoc_fallback_when_page_missing() {
+    let doc_id = "stub-page-missing";
+    let markdown = "# Title\n\nUpdated content.";
+
+    // Build a stub doc that has some blocks, but no `affine:page` root.
+    let doc = DocOptions::new().with_guid(doc_id.to_string()).build();
+    let mut blocks_map = doc.get_or_create_map("blocks").expect("create blocks map");
+    let para_id = "para-1";
+    let mut para = insert_block_map(&doc, &mut blocks_map, para_id).expect("insert para");
+    insert_sys_fields(&mut para, para_id, "affine:paragraph").expect("sys fields");
+    insert_children(&doc, &mut para, &[]).expect("children");
+
+    let stub_bin = doc
+      .encode_state_as_update_v1(&StateVector::default())
+      .expect("encode stub update");
+    assert!(!stub_bin.is_empty(), "stub update should not be empty");
+
+    let delta = update_doc(&stub_bin, markdown, doc_id).expect("fallback delta");
+    assert!(!delta.is_empty(), "delta should contain changes");
+
+    let mut updated = DocOptions::new().with_guid(doc_id.to_string()).build();
+    updated
+      .apply_update_from_binary_v1(&stub_bin)
+      .expect("apply stub update");
+    updated
+      .apply_update_from_binary_v1(&delta)
+      .expect("apply fallback delta");
+
+    let blocks_map = updated.get_map("blocks").expect("blocks map exists");
+    let index = build_block_index(&blocks_map);
+    let page_id = find_block_id_by_flavour(&index.block_pool, PAGE_FLAVOUR).expect("page block exists");
+    let page = index.block_pool.get(&page_id).expect("page map exists").clone();
+
+    let note_id = find_child_id_by_flavour(&page, &index.block_pool, NOTE_FLAVOUR).expect("note child exists");
+    let note = index.block_pool.get(&note_id).expect("note block exists").clone();
+    assert!(
+      !collect_child_ids(&note).is_empty(),
+      "note should contain imported content blocks"
+    );
+  }
+
+  #[test]
+  fn test_update_ydoc_fallback_when_note_missing() {
+    let doc_id = "stub-note-missing";
+    let markdown = "# Title\n\nUpdated content.";
+
+    // Build a stub doc that has an `affine:page` block but doesn't contain a note
+    // child.
+    let doc = DocOptions::new().with_guid(doc_id.to_string()).build();
+    let mut blocks_map = doc.get_or_create_map("blocks").expect("create blocks map");
+    let page_id = "page-1";
+    let mut page = insert_block_map(&doc, &mut blocks_map, page_id).expect("insert page");
+    insert_sys_fields(&mut page, page_id, PAGE_FLAVOUR).expect("sys fields");
+    insert_children(&doc, &mut page, &[]).expect("children");
+
+    let stub_bin = doc
+      .encode_state_as_update_v1(&StateVector::default())
+      .expect("encode stub update");
+    assert!(!stub_bin.is_empty(), "stub update should not be empty");
+
+    let delta = update_doc(&stub_bin, markdown, doc_id).expect("fallback delta");
+    assert!(!delta.is_empty(), "delta should contain changes");
+
+    let mut updated = DocOptions::new().with_guid(doc_id.to_string()).build();
+    updated
+      .apply_update_from_binary_v1(&stub_bin)
+      .expect("apply stub update");
+    updated
+      .apply_update_from_binary_v1(&delta)
+      .expect("apply fallback delta");
+
+    let blocks_map = updated.get_map("blocks").expect("blocks map exists");
+    let index = build_block_index(&blocks_map);
+    let page_id = find_block_id_by_flavour(&index.block_pool, PAGE_FLAVOUR).expect("page block exists");
+    let page = index.block_pool.get(&page_id).expect("page map exists").clone();
+
+    let note_id = find_child_id_by_flavour(&page, &index.block_pool, NOTE_FLAVOUR).expect("note child exists");
+    let note = index.block_pool.get(&note_id).expect("note block exists").clone();
+    assert!(
+      !collect_child_ids(&note).is_empty(),
+      "note should contain imported content blocks"
+    );
+  }
+
+  #[test]
+  fn test_update_ydoc_preserves_opaque_blocks_when_unsupported_block_flavour() {
+    let doc_id = "unsupported-flavour-replace";
+
+    // Build a doc with canonical page/note structure, but add an unsupported block
+    // flavour under note. This simulates real-world docs that contain blocks we
+    // don't support for structural diffing.
+    let doc = DocOptions::new().with_guid(doc_id.to_string()).build();
+    let mut blocks_map = doc.get_or_create_map("blocks").expect("create blocks map");
+
+    let page_id = "page-1";
+    let surface_id = "surface-1";
+    let note_id = "note-1";
+    let db_id = "db-1";
+
+    let mut page = insert_block_map(&doc, &mut blocks_map, page_id).expect("insert page");
+    let mut surface = insert_block_map(&doc, &mut blocks_map, surface_id).expect("insert surface");
+    let mut note = insert_block_map(&doc, &mut blocks_map, note_id).expect("insert note");
+    let mut db = insert_block_map(&doc, &mut blocks_map, db_id).expect("insert db");
+
+    insert_sys_fields(&mut page, page_id, PAGE_FLAVOUR).expect("page sys fields");
+    insert_children(&doc, &mut page, &[surface_id.to_string(), note_id.to_string()]).expect("page children");
+    insert_text(&doc, &mut page, PROP_TITLE, &text_ops_from_plain("Title")).expect("page title");
+
+    insert_sys_fields(&mut surface, surface_id, SURFACE_FLAVOUR).expect("surface sys fields");
+    insert_children(&doc, &mut surface, &[]).expect("surface children");
+    let mut boxed = boxed_empty_map(&doc).expect("boxed map");
+    surface
+      .insert(PROP_ELEMENTS.to_string(), Value::Map(boxed.clone()))
+      .expect("surface elements");
+    boxed
+      .insert("type".to_string(), Any::String(BOXED_NATIVE_TYPE.to_string()))
+      .expect("boxed type");
+    let value = doc.create_map().expect("boxed value map");
+    boxed
+      .insert("value".to_string(), Value::Map(value))
+      .expect("boxed value");
+
+    insert_sys_fields(&mut note, note_id, NOTE_FLAVOUR).expect("note sys fields");
+    insert_children(&doc, &mut note, &[db_id.to_string()]).expect("note children");
+
+    // Unsupported flavour.
+    insert_sys_fields(&mut db, db_id, "affine:database").expect("db sys fields");
+    insert_children(&doc, &mut db, &[]).expect("db children");
+
+    let initial_bin = doc
+      .encode_state_as_update_v1(&StateVector::default())
+      .expect("encode initial");
+
+    // Updating should succeed and preserve the opaque block rather than deleting
+    // it.
+    let updated_md = "# New Title\n\nHello.";
+    let delta = update_doc(&initial_bin, updated_md, doc_id).expect("delta");
+    assert!(!delta.is_empty(), "delta should contain changes");
+
+    let mut updated_doc = DocOptions::new().with_guid(doc_id.to_string()).build();
+    updated_doc
+      .apply_update_from_binary_v1(&initial_bin)
+      .expect("apply initial");
+    updated_doc.apply_update_from_binary_v1(&delta).expect("apply delta");
+
+    let blocks_map = updated_doc.get_map("blocks").expect("blocks map");
+    assert!(
+      blocks_map.get(db_id).is_some(),
+      "opaque block should be preserved when syncing from markdown"
+    );
+
+    let md = parse_doc_to_markdown(updated_doc.encode_update_v1().unwrap(), doc_id.to_string(), false, None)
+      .expect("render markdown")
+      .markdown;
+    assert!(md.contains("Hello."));
   }
 
   #[test]

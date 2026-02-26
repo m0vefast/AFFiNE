@@ -282,6 +282,9 @@ pub fn parse_doc_to_markdown(
       0
     };
     let ai_block = ai_editable && block_level == 2;
+    let ai_preserve_block = ai_block
+      && (matches!(flavour.as_str(), "affine:database" | "affine:callout")
+        || BlockFlavour::from_str(flavour.as_str()).is_none());
 
     let mut block_markdown = String::new();
 
@@ -308,7 +311,9 @@ pub fn parse_doc_to_markdown(
           };
           renderer.write_block(&mut block_markdown, &spec, list_depth);
         } else {
-          return Err(ParseError::ParserError(format!("unsupported_block_flavour:{flavour}")));
+          block_markdown.push_str(&format!(
+            "<!-- unsupported_block_flavour:{flavour} block_id={block_id} -->\n\n"
+          ));
         }
       }
     }
@@ -317,6 +322,9 @@ pub fn parse_doc_to_markdown(
       markdown.push_str(&format!("<!-- block_id={block_id} flavour={flavour} -->\n"));
     }
     markdown.push_str(&block_markdown);
+    if ai_preserve_block {
+      markdown.push_str(&format!("<!-- block_id={block_id} flavour={flavour} end -->\n"));
+    }
   }
 
   Ok(MarkdownResult {
@@ -791,5 +799,60 @@ mod tests {
     assert!(md.contains("blob://image-id"));
     assert!(md.contains("|A|B|"));
     assert!(md.contains("|---|---|"));
+  }
+
+  #[test]
+  fn test_parse_doc_to_markdown_skips_unsupported_block_flavour() {
+    let doc_id = "unsupported-doc".to_string();
+    let doc = DocOptions::new().with_guid(doc_id.clone()).build();
+    let mut blocks = doc.get_or_create_map("blocks").unwrap();
+
+    let mut page = doc.create_map().unwrap();
+    page.insert("sys:id".into(), "page").unwrap();
+    page.insert("sys:flavour".into(), "affine:page").unwrap();
+    let mut page_children = doc.create_array().unwrap();
+    page_children.push("note").unwrap();
+    page.insert("sys:children".into(), Value::Array(page_children)).unwrap();
+    let mut page_title = doc.create_text().unwrap();
+    page_title.insert(0, "Page").unwrap();
+    page.insert("prop:title".into(), Value::Text(page_title)).unwrap();
+    blocks.insert("page".into(), Value::Map(page)).unwrap();
+
+    let mut note = doc.create_map().unwrap();
+    note.insert("sys:id".into(), "note").unwrap();
+    note.insert("sys:flavour".into(), "affine:note").unwrap();
+    let mut note_children = doc.create_array().unwrap();
+    note_children.push("latex").unwrap();
+    note_children.push("paragraph").unwrap();
+    note.insert("sys:children".into(), Value::Array(note_children)).unwrap();
+    note.insert("prop:displayMode".into(), "page").unwrap();
+    blocks.insert("note".into(), Value::Map(note)).unwrap();
+
+    let mut unsupported = doc.create_map().unwrap();
+    unsupported.insert("sys:id".into(), "latex").unwrap();
+    unsupported.insert("sys:flavour".into(), "affine:latex").unwrap();
+    unsupported
+      .insert("sys:children".into(), Value::Array(doc.create_array().unwrap()))
+      .unwrap();
+    blocks.insert("latex".into(), Value::Map(unsupported)).unwrap();
+
+    let mut paragraph = doc.create_map().unwrap();
+    paragraph.insert("sys:id".into(), "paragraph").unwrap();
+    paragraph.insert("sys:flavour".into(), "affine:paragraph").unwrap();
+    paragraph
+      .insert("sys:children".into(), Value::Array(doc.create_array().unwrap()))
+      .unwrap();
+    let mut paragraph_text = doc.create_text().unwrap();
+    paragraph_text.insert(0, "After unsupported block").unwrap();
+    paragraph
+      .insert("prop:text".into(), Value::Text(paragraph_text))
+      .unwrap();
+    blocks.insert("paragraph".into(), Value::Map(paragraph)).unwrap();
+
+    let doc_bin = doc.encode_update_v1().unwrap();
+    let result = parse_doc_to_markdown(doc_bin, doc_id, false, None).expect("parse doc");
+
+    assert!(result.markdown.contains("unsupported_block_flavour:affine:latex"));
+    assert!(result.markdown.contains("After unsupported block"));
   }
 }

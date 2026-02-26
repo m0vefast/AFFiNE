@@ -6,6 +6,7 @@ import {
   type ListedBlobRecord,
   universalId,
 } from '@affine/nbstore';
+import { DiskDocStorage } from '@affine/nbstore/disk';
 import {
   IndexedDBBlobStorage,
   IndexedDBBlobSyncStorage,
@@ -46,6 +47,7 @@ import type {
   WorkspaceProfileInfo,
 } from '../../workspace';
 import { WorkspaceImpl } from '../../workspace/impls/workspace';
+import { getDiskSyncRemoteOptions } from './disk-config';
 import { getWorkspaceProfileWorker } from './out-worker';
 import {
   dedupeWorkspaceIds,
@@ -430,6 +432,7 @@ class LocalWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
   }
 
   getEngineWorkerInitOptions(workspaceId: string): WorkerInitOptions {
+    const disk = getDiskSyncRemoteOptions(workspaceId);
     return {
       local: {
         doc: {
@@ -488,6 +491,21 @@ class LocalWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
         },
       },
       remotes: {
+        ...(disk
+          ? {
+              disk: {
+                doc: {
+                  name: DiskDocStorage.identifier,
+                  opts: {
+                    flavour: this.flavour,
+                    type: 'workspace',
+                    id: workspaceId,
+                    syncFolder: disk.syncFolder,
+                  },
+                },
+              },
+            }
+          : {}),
         v1: {
           doc: this.DocStorageV1Type
             ? {

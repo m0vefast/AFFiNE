@@ -134,8 +134,12 @@ export const test = base.extend<{
         }
       }
       env.DEBUG = 'pw:browser';
+      // Some environments set this for running Electron as plain Node.js.
+      // Playwright needs a real Electron instance to attach via DevTools.
+      delete env.ELECTRON_RUN_AS_NODE;
 
       env.SKIP_ONBOARDING = '1';
+      env.AFFINE_E2E = env.AFFINE_E2E || '1';
 
       const electronApp = await electron.launch({
         args: [clonedDist],

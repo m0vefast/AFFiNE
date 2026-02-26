@@ -241,13 +241,16 @@ export class DocSyncPeer {
         (await this.syncMetadata.getPeerPushedClock(this.peerId, docId))
           ?.timestamp ?? null;
       const clock = await this.local.getDocTimestamp(docId);
+      const remoteClock = this.status.remoteClocks.get(docId) ?? null;
 
       throwIfAborted(signal);
       if (
         !this.remote.isReadonly &&
         clock &&
         (pushedClock === null ||
-          pushedClock.getTime() < clock.timestamp.getTime())
+          pushedClock.getTime() < clock.timestamp.getTime() ||
+          remoteClock === null ||
+          remoteClock.getTime() < clock.timestamp.getTime())
       ) {
         await this.jobs.pullAndPush(docId, signal);
       } else {
@@ -255,7 +258,6 @@ export class DocSyncPeer {
         const pulled =
           (await this.syncMetadata.getPeerPulledRemoteClock(this.peerId, docId))
             ?.timestamp ?? null;
-        const remoteClock = this.status.remoteClocks.get(docId);
         if (
           remoteClock &&
           (pulled === null || pulled.getTime() < remoteClock.getTime())
@@ -676,10 +678,12 @@ export class DocSyncPeer {
         this.actions.addDoc(docId);
       }
 
+      const forceFullRemoteClockRefresh = this.peerId === 'disk';
+
       // get cached clocks from metadata
-      const cachedClocks = await this.syncMetadata.getPeerRemoteClocks(
-        this.peerId
-      );
+      const cachedClocks = forceFullRemoteClockRefresh
+        ? {}
+        : await this.syncMetadata.getPeerRemoteClocks(this.peerId);
       this.status.remoteClocks.clear();
       throwIfAborted(signal);
       for (const [id, v] of Object.entries(cachedClocks)) {
@@ -687,9 +691,14 @@ export class DocSyncPeer {
       }
       this.statusUpdatedSubject$.next(true);
 
-      // get new clocks from server
-      const maxClockValue = this.status.remoteClocks.max;
+      // get clocks from server
+      const maxClockValue = forceFullRemoteClockRefresh
+        ? undefined
+        : this.status.remoteClocks.max;
       const newClocks = await this.remote.getDocTimestamps(maxClockValue);
+      if (forceFullRemoteClockRefresh) {
+        this.status.remoteClocks.clear();
+      }
       for (const [id, v] of Object.entries(newClocks)) {
         this.status.remoteClocks.set(id, v);
       }

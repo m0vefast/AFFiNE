@@ -3,7 +3,7 @@
 //! Converts markdown content into AFFiNE-compatible y-octo document binary
 //! format.
 
-use y_octo::DocOptions;
+use y_octo::{DocOptions, StateVector};
 
 use super::{
   super::{
@@ -73,7 +73,7 @@ fn build_doc_update(doc_id: &str, title: &str, blocks: &[BlockNode]) -> Result<V
   note_map.insert(PROP_HIDDEN.to_string(), Any::False)?;
   note_map.insert(PROP_DISPLAY_MODE.to_string(), Any::String("both".to_string()))?;
 
-  Ok(doc.encode_update_v1()?)
+  Ok(doc.encode_state_as_update_v1(&StateVector::default())?)
 }
 
 fn insert_block_trees(doc: &Doc, blocks_map: &mut Map, blocks: &[BlockNode]) -> Result<Vec<String>, ParseError> {

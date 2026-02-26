@@ -135,10 +135,12 @@ dependencies = [
  "napi-derive",
  "once_cell",
  "serde_json",
+ "sha3",
  "sqlx",
  "thiserror 2.0.17",
  "tokio",
  "uuid",
+ "y-octo",
 ]
 
 [[package]]
