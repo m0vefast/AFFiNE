@@ -29,7 +29,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import * as Y from 'yjs';
 
 export function mountShapeTextEditor(
-  shapeElement: ShapeElementModel,
+  shapeElement: ShapeElementModel | null | undefined,
   edgeless: BlockComponent
 ) {
   const mountElm = edgeless.querySelector('.edgeless-mount-point');
@@ -43,6 +43,11 @@ export function mountShapeTextEditor(
   const gfx = edgeless.std.get(GfxControllerIdentifier);
   const crud = edgeless.std.get(EdgelessCRUDIdentifier);
 
+  if (!(shapeElement instanceof ShapeElementModel)) {
+    console.error('Cannot mount text editor on an invalid shape element');
+    return;
+  }
+
   const updatedElement = crud.getElementById(shapeElement.id);
 
   if (!(updatedElement instanceof ShapeElementModel)) {
@@ -52,15 +57,13 @@ export function mountShapeTextEditor(
 
   gfx.tool.setTool(DefaultTool);
   gfx.selection.set({
-    elements: [shapeElement.id],
+    elements: [updatedElement.id],
     editing: true,
   });
 
-  if (!shapeElement.text) {
+  if (!updatedElement.text) {
     const text = new Y.Text();
-    edgeless.std
-      .get(EdgelessCRUDIdentifier)
-      .updateElement(shapeElement.id, { text });
+    crud.updateElement(updatedElement.id, { text });
   }
 
   const shapeEditor = new EdgelessShapeTextEditor();
