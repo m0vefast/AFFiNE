@@ -3,11 +3,8 @@ import {
   EdgelessCRUDIdentifier,
   TextUtils,
 } from '@blocksuite/affine-block-surface';
-import {
-  MindmapElementModel,
-  ShapeElementModel,
-  TextResizing,
-} from '@blocksuite/affine-model';
+import type { ShapeElementModel } from '@blocksuite/affine-model';
+import { MindmapElementModel, TextResizing } from '@blocksuite/affine-model';
 import type { RichText } from '@blocksuite/affine-rich-text';
 import { ThemeProvider } from '@blocksuite/affine-shared/services';
 import { getSelectedRect } from '@blocksuite/affine-shared/utils';
@@ -29,7 +26,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import * as Y from 'yjs';
 
 export function mountShapeTextEditor(
-  shapeElement: ShapeElementModel | null | undefined,
+  shapeElement: { id: string; text?: Y.Text } | null | undefined,
   edgeless: BlockComponent
 ) {
   const mountElm = edgeless.querySelector('.edgeless-mount-point');
@@ -43,14 +40,14 @@ export function mountShapeTextEditor(
   const gfx = edgeless.std.get(GfxControllerIdentifier);
   const crud = edgeless.std.get(EdgelessCRUDIdentifier);
 
-  if (!(shapeElement instanceof ShapeElementModel)) {
+  if (!shapeElement?.id) {
     console.error('Cannot mount text editor on an invalid shape element');
     return;
   }
 
   const updatedElement = crud.getElementById(shapeElement.id);
 
-  if (!(updatedElement instanceof ShapeElementModel)) {
+  if (!updatedElement || !('id' in updatedElement)) {
     console.error('Cannot mount text editor on a non-shape element');
     return;
   }
