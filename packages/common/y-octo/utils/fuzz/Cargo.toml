@@ -10,9 +10,9 @@ version = "0.0.0"
 [dependencies]
 lib0          = "=0.16.10"
 libfuzzer-sys = "0.4"
-rand          = "0.9"
-rand_chacha   = "0.9"
-yrs           = "=0.23.1"
+rand          = "0.10"
+rand_chacha   = "0.10"
+yrs           = "=0.25.0"
 
 y-octo-utils = { path = "..", features = ["fuzz"] }
 
