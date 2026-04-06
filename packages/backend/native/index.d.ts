@@ -26,6 +26,8 @@ export const AFFINE_PRO_LICENSE_AES_KEY: string | undefined | null
 
 export const AFFINE_PRO_PUBLIC_KEY: string | undefined | null
 
+export declare function buildPublicRootDoc(rootDocBin: Buffer, docMetas: Array<PublicDocMetaInput>): Buffer
+
 export interface Chunk {
   index: number
   content: string
@@ -50,15 +52,15 @@ export declare function getMime(input: Uint8Array): string
 
 export declare function htmlSanitize(input: string): string
 
-export declare function llmDispatch(protocol: string, backendConfigJson: string, requestJson: string): string
+export declare function llmDispatch(protocol: string, backendConfigJson: string, requestJson: string): Promise<string>
 
 export declare function llmDispatchStream(protocol: string, backendConfigJson: string, requestJson: string, callback: ((err: Error | null, arg: string) => void)): LlmStreamHandle
 
-export declare function llmEmbeddingDispatch(protocol: string, backendConfigJson: string, requestJson: string): string
+export declare function llmEmbeddingDispatch(protocol: string, backendConfigJson: string, requestJson: string): Promise<string>
 
-export declare function llmRerankDispatch(protocol: string, backendConfigJson: string, requestJson: string): string
+export declare function llmRerankDispatch(protocol: string, backendConfigJson: string, requestJson: string): Promise<string>
 
-export declare function llmStructuredDispatch(protocol: string, backendConfigJson: string, requestJson: string): string
+export declare function llmStructuredDispatch(protocol: string, backendConfigJson: string, requestJson: string): Promise<string>
 
 /**
  * Merge updates in form like `Y.applyUpdate(doc, update)` way and return the
@@ -119,6 +121,11 @@ export declare function parsePageDoc(docBin: Buffer, maxSummaryLength?: number |
 export declare function parseWorkspaceDoc(docBin: Buffer): NativeWorkspaceDocContent | null
 
 export declare function processImage(input: Buffer, maxEdge: number, keepExif: boolean): Promise<Buffer>
+
+export interface PublicDocMetaInput {
+  id: string
+  title?: string
+}
 
 export declare function readAllDocIdsFromRootDoc(docBin: Buffer, includeTrash?: boolean | undefined | null): Array<string>
 

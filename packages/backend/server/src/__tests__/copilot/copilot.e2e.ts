@@ -11,6 +11,7 @@ import { JobQueue } from '../../base';
 import { ConfigModule } from '../../base/config';
 import { AuthService } from '../../core/auth';
 import { DocReader } from '../../core/doc';
+import { ContextCategories, DocRole, WorkspaceRole } from '../../models';
 import { CopilotContextService } from '../../plugins/copilot/context';
 import {
   CopilotEmbeddingJob,
@@ -25,7 +26,7 @@ import {
   OpenAIProvider,
 } from '../../plugins/copilot/providers';
 import { CopilotStorage } from '../../plugins/copilot/storage';
-import { MockCopilotProvider } from '../mocks';
+import { MockCopilotProvider, Mockers } from '../mocks';
 import {
   acceptInviteById,
   createTestingApp,
@@ -36,6 +37,7 @@ import {
   TestUser,
 } from '../utils';
 import {
+  addContextCategory,
   addContextDoc,
   addContextFile,
   array2sse,
@@ -60,6 +62,7 @@ import {
   getPinnedSessions,
   getWorkspaceSessions,
   listContext,
+  listContextCategories,
   listContextDocAndFiles,
   matchFiles,
   matchWorkspaceDocs,
@@ -1040,90 +1043,253 @@ test('should be able to manage context', async t => {
   }
 });
 
+test('should reject context reads from another user', async t => {
+  const { app, context, jobs, u1 } = t.context;
+
+  const u2 = await app.signupV1();
+  await app.switchUser(u1);
+
+  const { id: workspaceId } = await createWorkspace(app);
+  const sessionId = await createCopilotSession(
+    app,
+    workspaceId,
+    randomUUID(),
+    textPromptName
+  );
+
+  Sinon.stub(context, 'embeddingClient').get(() => new MockEmbeddingClient());
+  Sinon.stub(jobs, 'embeddingClient').get(() => new MockEmbeddingClient());
+
+  const contextId = await createCopilotContext(app, workspaceId, sessionId);
+  await addContextFile(app, contextId, 'sample.txt', Buffer.from('test file'));
+
+  await app.switchUser(u2);
+
+  await t.throwsAsync(
+    app.gql(`
+      query {
+        currentUser {
+          copilot {
+            contexts(contextId: "${contextId}") {
+              id
+            }
+          }
+        }
+      }
+    `)
+  );
+  await t.throwsAsync(matchFiles(app, contextId, 'test', 1));
+});
+
+test('should skip unauthorized docs when adding context category', async t => {
+  const { app, context, jobs, u1 } = t.context;
+
+  const member = await app.signupV1();
+  await app.switchUser(u1);
+
+  const { id: workspaceId } = await createWorkspace(app);
+  await app.create(Mockers.WorkspaceUser, {
+    workspaceId,
+    userId: member.id,
+    type: WorkspaceRole.Collaborator,
+  });
+
+  const readableSnapshot = await app.create(Mockers.DocSnapshot, {
+    workspaceId,
+    user: u1,
+  });
+  const hiddenSnapshot = await app.create(Mockers.DocSnapshot, {
+    workspaceId,
+    user: u1,
+  });
+
+  await app.create(Mockers.DocMeta, {
+    workspaceId,
+    docId: readableSnapshot.id,
+    title: 'readable-doc',
+  });
+  await app.create(Mockers.DocMeta, {
+    workspaceId,
+    docId: hiddenSnapshot.id,
+    title: 'hidden-doc',
+    defaultRole: DocRole.None,
+  });
+
+  Sinon.stub(context, 'embeddingClient').get(() => new MockEmbeddingClient());
+  Sinon.stub(jobs, 'embeddingClient').get(() => new MockEmbeddingClient());
+
+  await app.switchUser(member);
+  const sessionId = await createCopilotSession(
+    app,
+    workspaceId,
+    randomUUID(),
+    textPromptName
+  );
+  const contextId = await createCopilotContext(app, workspaceId, sessionId);
+  const category = await addContextCategory(
+    app,
+    contextId,
+    ContextCategories.Collection,
+    'fav',
+    [readableSnapshot.id, hiddenSnapshot.id]
+  );
+
+  t.deepEqual(
+    category.docs.map(doc => doc.id),
+    [readableSnapshot.id]
+  );
+
+  const ret = await listContextCategories(
+    app,
+    workspaceId,
+    sessionId,
+    contextId
+  );
+  t.deepEqual(
+    ret?.collections?.[0]?.docs.map(doc => doc.id),
+    [readableSnapshot.id]
+  );
+});
+
 test('should be able to transcript', async t => {
   const { app } = t.context;
 
   const { id: workspaceId } = await createWorkspace(app);
 
-  for (const [provider, func] of [
-    [GeminiGenerativeProvider, 'text'],
-    [GeminiGenerativeProvider, 'structure'],
-  ] as const) {
-    Sinon.stub(app.get(provider), func).resolves(
-      JSON.stringify([
-        { a: 'A', s: 30, e: 45, t: 'Hello, everyone.' },
+  Sinon.stub(app.get(GeminiGenerativeProvider), 'structure').resolves(
+    JSON.stringify([
+      { a: 'A', s: 30, e: 45, t: 'Hello, everyone.' },
+      {
+        a: 'B',
+        s: 46,
+        e: 70,
+        t: 'Hi, thank you for joining the meeting today.',
+      },
+    ])
+  );
+  Sinon.stub(app.get(OpenAIProvider), 'structure').resolves(
+    JSON.stringify({
+      title: 'Weekly Sync',
+      durationMinutes: 12,
+      attendees: ['A', 'B'],
+      keyPoints: ['Reviewed launch status'],
+      actionItems: [
         {
-          a: 'B',
-          s: 46,
-          e: 70,
-          t: 'Hi, thank you for joining the meeting today.',
+          description: 'Send recap',
+          owner: 'A',
+          deadline: 'Friday',
         },
-      ])
-    );
-  }
+      ],
+      decisions: ['Ship on Monday'],
+      openQuestions: ['Need final QA sign-off'],
+      blockers: ['Waiting on analytics'],
+    })
+  );
 
   {
-    const job = await submitAudioTranscription(app, workspaceId, '1', '1.mp3', [
-      Buffer.from([1, 1]),
-    ]);
-    t.snapshot(
-      cleanObject([job], ['id']),
-      'should submit audio transcription job'
+    const job = await submitAudioTranscription(
+      app,
+      workspaceId,
+      '1',
+      '1.mp3',
+      [Buffer.from([1, 1])],
+      {
+        sourceAudio: {
+          mimeType: 'audio/ogg',
+          durationMs: 120000,
+          sampleRate: 48000,
+          channels: 2,
+        },
+        quality: {
+          degraded: true,
+          overflowCount: 4,
+        },
+        sliceManifest: [
+          {
+            index: 0,
+            fileName: '1-0.opus',
+            mimeType: 'audio/opus',
+            startSec: 12,
+            durationSec: 58,
+            byteSize: 2,
+          },
+        ],
+      }
     );
     t.truthy(job.id, 'should have job id');
 
-    // wait for processing
-    {
-      let { status } =
-        (await audioTranscription(app, workspaceId, job.id)) || {};
-
-      while (status !== 'finished') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        ({ status } =
-          (await audioTranscription(app, workspaceId, job.id)) || {});
-      }
+    let status = '';
+    while (status !== 'finished') {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      status =
+        (await audioTranscription(app, workspaceId, job.id))?.status || '';
     }
 
-    {
-      const result = await claimAudioTranscription(app, job.id);
-      t.snapshot(
-        cleanObject([result], ['id']),
-        'should claim audio transcription job'
-      );
-    }
+    const result = await claimAudioTranscription(app, job.id);
+    t.is(result.title, 'Weekly Sync');
+    t.is(result.summaryJson?.title, 'Weekly Sync');
+    t.is(result.summaryJson?.actionItems[0]?.description, 'Send recap');
+    t.is(result.sourceAudio?.blobId, '1');
+    t.is(result.sourceAudio?.mimeType, 'audio/ogg');
+    t.is(result.quality?.degraded, true);
+    t.is(result.quality?.overflowCount, 4);
+    t.is(result.normalizedSegments?.[0]?.start, '00:00:42');
+    t.is(result.normalizedSegments?.[0]?.text, 'Hello, everyone.');
+    t.is(result.transcription?.[0]?.start, '00:00:42');
+    t.true(result.summary?.includes('Reviewed launch status') ?? false);
+    t.is(result.actions, '- [ ] Send recap (A · Friday)');
   }
 
   {
-    // sliced audio
-    const job = await submitAudioTranscription(app, workspaceId, '2', '2.mp3', [
-      Buffer.from([1, 1]),
-      Buffer.from([1, 2]),
-    ]);
-    t.snapshot(
-      cleanObject([job], ['id']),
-      'should submit audio transcription job'
+    const job = await submitAudioTranscription(
+      app,
+      workspaceId,
+      '2',
+      '2.mp3',
+      [Buffer.from([1, 1]), Buffer.from([1, 2])],
+      {
+        sliceManifest: [
+          {
+            index: 0,
+            fileName: '2-0.opus',
+            mimeType: 'audio/opus',
+            startSec: 0,
+            durationSec: 600,
+            byteSize: 2,
+          },
+          {
+            index: 1,
+            fileName: '2-1.opus',
+            mimeType: 'audio/opus',
+            startSec: 605,
+            durationSec: 120,
+            byteSize: 2,
+          },
+        ],
+      }
     );
     t.truthy(job.id, 'should have job id');
 
-    // wait for processing
-    {
-      let { status } =
-        (await audioTranscription(app, workspaceId, job.id)) || {};
-
-      while (status !== 'finished') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        ({ status } =
-          (await audioTranscription(app, workspaceId, job.id)) || {});
-      }
+    let status = '';
+    while (status !== 'finished') {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      status =
+        (await audioTranscription(app, workspaceId, job.id))?.status || '';
     }
 
-    {
-      const result = await claimAudioTranscription(app, job.id);
-      t.snapshot(
-        cleanObject([result], ['id']),
-        'should claim audio transcription job'
-      );
-    }
+    const result = await claimAudioTranscription(app, job.id);
+    t.deepEqual(
+      result.normalizedSegments?.map(segment => segment.start),
+      ['00:00:30', '00:00:46', '00:10:35', '00:10:51']
+    );
+    t.deepEqual(
+      result.transcription?.map(segment => segment.start),
+      ['00:00:30', '00:00:46', '00:10:35', '00:10:51']
+    );
+    t.is(
+      result.normalizedTranscript?.split('\n')[2],
+      '00:10:35 A: Hello, everyone.'
+    );
   }
 });
 

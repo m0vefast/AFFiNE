@@ -27,6 +27,7 @@ import { IMAGE_ATTACHMENT_CAPABILITY } from './attachments';
 import {
   buildNativeEmbeddingRequest,
   buildNativeRequest,
+  buildNativeRerankRequest,
   buildNativeStructuredRequest,
   NativeProviderAdapter,
   parseNativeStructuredOutput,
@@ -133,21 +134,6 @@ function normalizeImageResponseData(
     .filter((value): value is string => typeof value === 'string');
 }
 
-function buildOpenAIRerankRequest(
-  model: string,
-  request: CopilotRerankRequest
-): NativeLlmRerankRequest {
-  return {
-    model,
-    query: request.query,
-    candidates: request.candidates.map(candidate => ({
-      ...(candidate.id ? { id: candidate.id } : {}),
-      text: candidate.text,
-    })),
-    ...(request.topK ? { top_n: request.topK } : {}),
-  };
-}
-
 function createOpenAIMultimodalCapability(
   output: ModelCapability['output'],
   options: Pick<ModelCapability, 'defaultForOutputType'> = {}
@@ -194,6 +180,7 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
         createOpenAIMultimodalCapability([
           ModelOutputType.Text,
           ModelOutputType.Object,
+          ModelOutputType.Rerank,
         ]),
       ],
     },
@@ -444,7 +431,7 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
     return;
   }
 
-  private createNativeConfig(): NativeLlmBackendConfig {
+  protected createNativeConfig(): NativeLlmBackendConfig {
     const baseUrl = this.config.baseURL || 'https://api.openai.com/v1';
     return {
       base_url: baseUrl.replace(/\/v1\/?$/, ''),
@@ -452,7 +439,7 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
     };
   }
 
-  private getNativeProtocol() {
+  protected getNativeProtocol() {
     return this.config.oldApiStyle ? 'openai_chat' : 'openai_responses';
   }
 
@@ -664,7 +651,7 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
     const model = this.selectModel(normalizedCond);
 
     try {
-      metrics.ai.counter('chat_text_calls').add(1, { model: model.id });
+      metrics.ai.counter('chat_text_calls').add(1, this.metricLabels(model.id));
       const backendConfig = this.createNativeConfig();
       const middleware = this.getActiveProviderMiddleware();
       const cap = this.getAttachCapability(model, ModelOutputType.Structured);
@@ -687,7 +674,9 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
       const validated = schema.parse(parsed);
       return JSON.stringify(validated);
     } catch (e: any) {
-      metrics.ai.counter('chat_text_errors').add(1, { model: model.id });
+      metrics.ai
+        .counter('chat_text_errors')
+        .add(1, this.metricLabels(model.id));
       throw this.handleError(e);
     }
   }
@@ -707,7 +696,7 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
 
     try {
       const backendConfig = this.createNativeConfig();
-      const nativeRequest = buildOpenAIRerankRequest(model.id, request);
+      const nativeRequest = buildNativeRerankRequest(model.id, request);
       const response =
         await this.createNativeRerankDispatch(backendConfig)(nativeRequest);
       return response.scores;
@@ -983,7 +972,7 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
 
     metrics.ai
       .counter('generate_images_stream_calls')
-      .add(1, { model: model.id });
+      .add(1, this.metricLabels(model.id));
 
     const { content: prompt, attachments } = [...messages].pop() || {};
     if (!prompt) throw new CopilotPromptInvalid('Prompt is required');
@@ -1021,7 +1010,9 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
       }
       return;
     } catch (e: any) {
-      metrics.ai.counter('generate_images_errors').add(1, { model: model.id });
+      metrics.ai
+        .counter('generate_images_errors')
+        .add(1, this.metricLabels(model.id));
       throw this.handleError(e);
     }
   }
