@@ -37,28 +37,35 @@ describe('mindmap', () => {
     return cleanup;
   });
 
-  test('should update mindmap node editor size on compositionupdate', async () => {
+  test('should update mindmap node size during IME composition', async () => {
     const mindmapId = gfx.surface!.addElement({
       type: 'mindmap',
-      children: {
-        text: 'root',
-      },
+      children: { text: 'root', children: [{ text: 'leaf1' }] },
     });
     const mindmap = () => gfx.getElementById(mindmapId) as MindmapElementModel;
-
     const root = getDocRootBlock(window.doc, window.editor, 'edgeless');
+
+    doc.captureSync();
+    await wait();
+
     const rootNode = mindmap().tree.element;
 
     mountShapeTextEditor(rootNode, root);
     await wait();
 
     const shapeEditor = root.querySelector('edgeless-shape-text-editor') as
-      | (HTMLElement & { inlineEditorContainer?: HTMLElement })
+      | (HTMLElement & {
+          inlineEditorContainer?: HTMLElement;
+          richText?: HTMLElement;
+        })
       | null;
 
     expect(shapeEditor).not.toBeNull();
+    expect(shapeEditor?.richText).toBeTruthy();
+    expect(shapeEditor?.inlineEditorContainer).toBeTruthy();
 
     const updateSpy = vi.spyOn(shapeEditor as any, '_updateElementWH');
+    updateSpy.mockClear();
 
     const compositionUpdate = new CompositionEvent('compositionupdate', {
       data: '拼',
@@ -66,6 +73,19 @@ describe('mindmap', () => {
     });
 
     shapeEditor!.inlineEditorContainer?.dispatchEvent(compositionUpdate);
+    await wait();
+
+    expect(updateSpy).toHaveBeenCalled();
+
+    updateSpy.mockClear();
+
+    const compositionEnd = new CompositionEvent('compositionend', {
+      data: '拼',
+      bubbles: true,
+    });
+
+    shapeEditor!.inlineEditorContainer?.dispatchEvent(compositionEnd);
+    await wait();
 
     expect(updateSpy).toHaveBeenCalled();
   });

@@ -25,8 +25,17 @@ import { property, query } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import * as Y from 'yjs';
 
+function isShapeElement(element: unknown): element is ShapeElementModel {
+  return (
+    !!element &&
+    typeof element === 'object' &&
+    'type' in element &&
+    element.type === 'shape'
+  );
+}
+
 export function mountShapeTextEditor(
-  shapeElement: { id: string; text?: Y.Text } | null | undefined,
+  shapeElement: { id: string } | null | undefined,
   edgeless: BlockComponent
 ) {
   const mountElm = edgeless.querySelector('.edgeless-mount-point');
@@ -47,7 +56,7 @@ export function mountShapeTextEditor(
 
   const updatedElement = crud.getElementById(shapeElement.id);
 
-  if (!updatedElement || !('id' in updatedElement)) {
+  if (!isShapeElement(updatedElement)) {
     console.error('Cannot mount text editor on a non-shape element');
     return;
   }
@@ -70,6 +79,8 @@ export function mountShapeTextEditor(
 }
 
 export class EdgelessShapeTextEditor extends WithDisposable(ShadowlessElement) {
+  private _compositionUpdateRaf: number | null = null;
+
   private _keeping = false;
 
   private _lastXYWH = '';
@@ -148,6 +159,11 @@ export class EdgelessShapeTextEditor extends WithDisposable(ShadowlessElement) {
   }
 
   private _unmount() {
+    if (this._compositionUpdateRaf !== null) {
+      cancelAnimationFrame(this._compositionUpdateRaf);
+      this._compositionUpdateRaf = null;
+    }
+
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
 
@@ -168,6 +184,26 @@ export class EdgelessShapeTextEditor extends WithDisposable(ShadowlessElement) {
     this.selection.set({
       elements: [],
       editing: false,
+    });
+  }
+
+  private _scheduleElementWHUpdate(flush = false) {
+    if (flush) {
+      if (this._compositionUpdateRaf !== null) {
+        cancelAnimationFrame(this._compositionUpdateRaf);
+        this._compositionUpdateRaf = null;
+      }
+      this._updateElementWH();
+      return;
+    }
+
+    if (this._compositionUpdateRaf !== null) {
+      return;
+    }
+
+    this._compositionUpdateRaf = requestAnimationFrame(() => {
+      this._compositionUpdateRaf = null;
+      this._updateElementWH();
     });
   }
 
@@ -285,14 +321,14 @@ export class EdgelessShapeTextEditor extends WithDisposable(ShadowlessElement) {
           this.inlineEditorContainer,
           'compositionupdate',
           () => {
-            this._updateElementWH();
+            this._scheduleElementWHUpdate();
           }
         );
         this.disposables.addFromEvent(
           this.inlineEditorContainer,
           'compositionend',
           () => {
-            this._updateElementWH();
+            this._scheduleElementWHUpdate(true);
           }
         );
       })
