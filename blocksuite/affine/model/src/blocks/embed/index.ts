@@ -4,6 +4,7 @@ export * from './html/index';
 export * from './iframe/index';
 export * from './linked-doc/index';
 export * from './loom/index';
+export * from './md/index';
 export * from './synced-doc/index';
 export * from './types';
 export * from './youtube/index';

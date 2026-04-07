@@ -617,3 +617,35 @@ export const mindmapMenuMediaIcon = svg`<svg width="44" height="37" viewBox="0 0
 </defs>
 </svg>
 `;
+
+export const gridIcon = svg`<svg width="44" height="32" viewBox="0 0 44 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g filter="url(#filter0_d_grid)">
+<rect x="4" y="2" width="36" height="26" rx="3" fill="white" stroke="#B0B0B0" stroke-width="0.8"/>
+<line x1="16" y1="2" x2="16" y2="28" stroke="#C0C0C0" stroke-width="0.6"/>
+<line x1="28" y1="2" x2="28" y2="28" stroke="#C0C0C0" stroke-width="0.6"/>
+<line x1="4" y1="11" x2="40" y2="11" stroke="#C0C0C0" stroke-width="0.6"/>
+<line x1="4" y1="19.5" x2="40" y2="19.5" stroke="#C0C0C0" stroke-width="0.6"/>
+<rect x="5" y="3" width="10" height="7" rx="1" fill="#D6E4FF"/>
+<rect x="17" y="3" width="10" height="7" rx="1" fill="#D6E4FF"/>
+<rect x="29" y="3" width="10" height="7" rx="1" fill="#E8F0FE"/>
+<rect x="5" y="12" width="10" height="6.5" rx="1" fill="#E8F0FE"/>
+<rect x="17" y="12" width="10" height="6.5" rx="1" fill="#D6E4FF"/>
+<rect x="29" y="12" width="10" height="6.5" rx="1" fill="#E8F0FE"/>
+<rect x="5" y="20.5" width="10" height="6.5" rx="1" fill="#E8F0FE"/>
+<rect x="17" y="20.5" width="10" height="6.5" rx="1" fill="#E8F0FE"/>
+<rect x="29" y="20.5" width="10" height="6.5" rx="1" fill="#D6E4FF"/>
+</g>
+<defs>
+<filter id="filter0_d_grid" x="0" y="0" width="44" height="32" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="1"/>
+<feGaussianBlur stdDeviation="1"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+</filter>
+</defs>
+</svg>
+`;

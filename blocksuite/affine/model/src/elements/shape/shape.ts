@@ -154,6 +154,16 @@ export class ShapeElementModel extends GfxPrimitiveElementModel<ShapeProps> {
   @field()
   accessor shapeType: ShapeType = ShapeType.Rect;
 
+  /**
+   * Self-contained stencil shape data. JSON-encoded Canvas 2D ops array.
+   * Format: { w: number, h: number, ops: [opcode, ...args][] }
+   * When present, the shape renderer replays these ops instead of using
+   * the built-in rect/ellipse/diamond/triangle renderers.
+   * Empty string = not a stencil shape.
+   */
+  @field('')
+  accessor stencilData: string = '';
+
   @field()
   accessor strokeColor: Color = DefaultTheme.shapeStrokeColor;
 

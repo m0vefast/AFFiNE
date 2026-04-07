@@ -20,6 +20,13 @@ import type {
 import { DefaultTheme, TextAlign } from '@blocksuite/affine-model';
 import type { IBound } from '@blocksuite/global/gfx';
 import { Bound } from '@blocksuite/global/gfx';
+
+// ── Stencil data replay (self-contained shape ops stored in Yjs) ────────────
+// stencilData is a JSON string: { w, h, ops: [[cmd, ...args], ...] }
+// Replay function provided by the web-canvas layer at runtime.
+type StencilReplayFn = (ctx: CanvasRenderingContext2D, json: string, w: number, h: number, fill?: string, stroke?: string) => boolean;
+let _replayFn: StencilReplayFn | null = null;
+export function setStencilReplayFn(fn: StencilReplayFn) { _replayFn = fn; }
 import { deltaInsertsToChunks } from '@blocksuite/std/inline';
 
 import { diamond } from './diamond.js';
@@ -69,7 +76,52 @@ export const shape: ElementRenderer<ShapeElementModel> = (
   );
   const colors = { color, fillColor, strokeColor };
 
-  shapeRenderers[model.shapeType](model, ctx, matrix, renderer, rc, colors);
+  // Stencil override: if stencilData is set, replay stored Canvas 2D ops
+  if (model.stencilData && _replayFn) {
+    const { filled, rotate, strokeStyle, strokeWidth } = model;
+    const [, , w, h] = model.deserializedXYWH;
+    const renderOffset = Math.max(strokeWidth, 0) / 2;
+    const renderWidth = w - renderOffset * 2;
+    const renderHeight = h - renderOffset * 2;
+    const cx = renderWidth / 2;
+    const cy = renderHeight / 2;
+
+    ctx.setTransform(
+      matrix
+        .translateSelf(renderOffset, renderOffset)
+        .translateSelf(cx, cy)
+        .rotateSelf(rotate)
+        .translateSelf(-cx, -cy)
+    );
+
+    const effectiveStroke = strokeStyle === 'none' ? 'transparent' : 'rgba(0, 0, 0, 0.55)';
+    ctx.fillStyle = filled ? fillColor : 'transparent';
+    ctx.strokeStyle = effectiveStroke;
+    ctx.lineWidth = strokeWidth;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    if (strokeStyle === 'dash') ctx.setLineDash([12, 12]);
+    else ctx.setLineDash([]);
+
+    try {
+      _replayFn(ctx, model.stencilData, renderWidth, renderHeight,
+        filled ? fillColor : 'transparent', effectiveStroke);
+    } finally {
+      ctx.setTransform(
+        ctx
+          .getTransform()
+          .translateSelf(cx, cy)
+          .rotateSelf(-rotate)
+          .translateSelf(-cx, -cy)
+          .translateSelf(-renderOffset, -renderOffset)
+          .translateSelf(cx, cy)
+          .rotateSelf(rotate)
+          .translateSelf(-cx, -cy)
+      );
+    }
+  } else {
+    shapeRenderers[model.shapeType](model, ctx, matrix, renderer, rc, colors);
+  }
 
   if (model.textDisplay) {
     renderText(model, ctx, colors);

@@ -110,6 +110,38 @@ export const getMindmapRender =
     return mindmapId;
   };
 
+export const getGridRender =
+  (): DraggableTool['render'] =>
+  async (bound, edgeless) => {
+    const [x, y] = bound.toXYWH();
+
+    const cols = 3;
+    const rows = 3;
+    const colWidth = 200;
+    const rowHeight = 150;
+    const gap = 4;
+    const totalW = cols * colWidth + (cols - 1) * gap;
+    const totalH = rows * rowHeight + (rows - 1) * gap;
+
+    const crud = edgeless.std.get(EdgelessCRUDIdentifier);
+    const gridId = crud.addElement('grid', {
+      xywh: `[${x},${y},${totalW},${totalH}]`,
+      colWidths: Array(cols).fill(colWidth),
+      rowHeights: Array(rows).fill(rowHeight),
+      gap,
+    }) as string;
+
+    edgeless.std.getOptional(TelemetryProvider)?.track('CanvasElementAdded', {
+      control: 'toolbar:dnd',
+      page: 'whiteboard editor',
+      module: 'toolbar',
+      segment: 'toolbar',
+      type: 'grid',
+    });
+
+    return gridId;
+  };
+
 export const textRender: DraggableTool['render'] = async (bound, edgeless) => {
   const vCenter = bound.y + bound.h / 2;
   const w = 100;

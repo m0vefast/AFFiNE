@@ -7,6 +7,7 @@ import { DatabaseStoreExtension } from '@blocksuite/affine-block-database/store'
 import { DividerStoreExtension } from '@blocksuite/affine-block-divider/store';
 import { EdgelessTextStoreExtension } from '@blocksuite/affine-block-edgeless-text/store';
 import { EmbedStoreExtension } from '@blocksuite/affine-block-embed/store';
+import { EmbedMdStoreExtension } from '@blocksuite/affine-block-embed-md/store';
 import { EmbedDocStoreExtension } from '@blocksuite/affine-block-embed-doc/store';
 import { FrameStoreExtension } from '@blocksuite/affine-block-frame/store';
 import { ImageStoreExtension } from '@blocksuite/affine-block-image/store';
@@ -21,6 +22,7 @@ import { TableStoreExtension } from '@blocksuite/affine-block-table/store';
 import { FoundationStoreExtension } from '@blocksuite/affine-foundation/store';
 import { BrushStoreExtension } from '@blocksuite/affine-gfx-brush/store';
 import { ConnectorStoreExtension } from '@blocksuite/affine-gfx-connector/store';
+import { GridStoreExtension } from '@blocksuite/affine-gfx-grid/store';
 import { GroupStoreExtension } from '@blocksuite/affine-gfx-group/store';
 import { MindmapStoreExtension } from '@blocksuite/affine-gfx-mindmap/store';
 import { ShapeStoreExtension } from '@blocksuite/affine-gfx-shape/store';
@@ -53,6 +55,7 @@ export function getInternalStoreExtensions() {
     ParagraphStoreExtension,
     SurfaceRefStoreExtension,
     TableStoreExtension,
+    EmbedMdStoreExtension,
     SurfaceStoreExtension,
     RootStoreExtension,
 
@@ -66,6 +69,7 @@ export function getInternalStoreExtensions() {
     ShapeStoreExtension,
     MindmapStoreExtension,
     ConnectorStoreExtension,
+    GridStoreExtension,
     GroupStoreExtension,
     TextStoreExtension,
   ];

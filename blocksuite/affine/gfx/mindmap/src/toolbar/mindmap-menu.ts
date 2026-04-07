@@ -24,8 +24,13 @@ import { property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 
 import { getMindMaps, type ToolbarMindmapItem } from './assets.js';
-import { mediaRender, textRender } from './basket-elements.js';
-import { importMindMapIcon, mindmapMenuMediaIcon, textIcon } from './icons.js';
+import { getGridRender, mediaRender, textRender } from './basket-elements.js';
+import {
+  gridIcon,
+  importMindMapIcon,
+  mindmapMenuMediaIcon,
+  textIcon,
+} from './icons.js';
 import { MindMapPlaceholder } from './mindmap-importing-placeholder.js';
 
 type TextItem = {
@@ -40,6 +45,12 @@ type MediaItem = {
   render: typeof mediaRender;
 };
 
+type GridItem = {
+  type: 'grid';
+  icon: TemplateResult;
+  render: ReturnType<typeof getGridRender>;
+};
+
 type ImportItem = {
   type: 'import';
   icon: TemplateResult;
@@ -51,6 +62,12 @@ const mediaItem: MediaItem = {
   type: 'media',
   icon: mindmapMenuMediaIcon,
   render: mediaRender,
+};
+
+const gridItem: GridItem = {
+  type: 'grid',
+  icon: gridIcon,
+  render: getGridRender(),
 };
 
 export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
@@ -82,9 +99,13 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
       width: 64px;
     }
 
+    .grid-item {
+      width: 60px;
+    }
     .text-item,
     .media-item,
-    .mindmap-item {
+    .mindmap-item,
+    .grid-item {
       border-radius: 4px;
       height: 48px;
       position: relative;
@@ -94,7 +115,8 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
     }
     .text-item > button,
     .media-item > button,
-    .mindmap-item > button {
+    .mindmap-item > button,
+    .grid-item > button {
       position: absolute;
       border-radius: inherit;
       border: none;
@@ -104,12 +126,14 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
     }
     .text-item:hover,
     .media-item:hover,
+    .grid-item:hover,
     .mindmap-item[data-is-active='true'],
     .mindmap-item:hover {
       background: var(--affine-hover-color);
     }
     .text-item > button.next,
     .media-item > button.next,
+    .grid-item > button.next,
     .mindmap-item > button.next {
       transition: transform 0.3s ease-in-out;
     }
@@ -122,13 +146,53 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
   });
 
   draggableController!: EdgelessDraggableElementController<
-    ToolbarMindmapItem | TextItem | ImportItem | MediaItem
+    ToolbarMindmapItem | TextItem | ImportItem | MediaItem | GridItem
   >;
 
   override type = EmptyTool;
 
   get mindMaps() {
     return getMindMaps(this.theme);
+  }
+
+  private _renderGridItem() {
+    const { draggingElement, dragOut, cancelled } =
+      this.draggableController?.states || {};
+    const isDraggingGrid = draggingElement?.data?.type === 'grid';
+    const showNext = dragOut && !cancelled;
+
+    return html`<div class="grid-item">
+      ${isDraggingGrid
+        ? html`<button
+            class="next"
+            style="transform: translateY(${showNext ? 0 : 64}px)"
+          >
+            ${gridItem.icon}
+          </button>`
+        : nothing}
+      <button
+        style="opacity: ${isDraggingGrid ? 0 : 1}"
+        @mousedown=${(e: MouseEvent) =>
+          this.draggableController.onMouseDown(e, {
+            preview: gridItem.icon,
+            data: gridItem,
+            standardWidth: 350,
+          })}
+        @touchstart=${(e: TouchEvent) =>
+          this.draggableController.onTouchStart(e, {
+            preview: gridItem.icon,
+            data: gridItem,
+            standardWidth: 350,
+          })}
+      >
+        ${gridItem.icon}
+      </button>
+      <affine-tooltip tip-position="top" .offset=${12}>
+        <affine-tooltip-content-with-shortcut
+          data-tip="${'Content Grid'}"
+        ></affine-tooltip-content-with-shortcut>
+      </affine-tooltip>
+    </div>`;
   }
 
   private _importMindMapEntry() {
@@ -239,6 +303,12 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
                   elements: [id],
                   editing: false,
                 });
+              } else if (element.data.type === 'grid') {
+                this.setEdgelessTool(DefaultTool);
+                this.gfx.selection.set({
+                  elements: [id],
+                  editing: false,
+                });
               } else if (
                 element.data.type === 'text' ||
                 element.data.type === 'media'
@@ -339,6 +409,9 @@ export class EdgelessMindmapMenu extends EdgelessToolbarToolMixin(
             ></affine-tooltip-content-with-shortcut>
           </affine-tooltip>
         </div>
+        <div class="thin-divider"></div>
+        <!-- grid -->
+        ${this._renderGridItem()}
         <div class="thin-divider"></div>
         <!-- mind map -->
         ${repeat(this.mindMaps, mindMap => {

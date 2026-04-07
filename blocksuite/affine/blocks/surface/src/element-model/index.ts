@@ -1,6 +1,7 @@
 import {
   BrushElementModel,
   ConnectorElementModel,
+  GridElementModel,
   GroupElementModel,
   HighlighterElementModel,
   MindmapElementModel,
@@ -13,6 +14,7 @@ import { SurfaceElementModel } from './base.js';
 export const elementsCtorMap = {
   group: GroupElementModel,
   connector: ConnectorElementModel,
+  grid: GridElementModel,
   shape: ShapeElementModel,
   brush: BrushElementModel,
   text: TextElementModel,
@@ -23,6 +25,7 @@ export const elementsCtorMap = {
 export {
   BrushElementModel,
   ConnectorElementModel,
+  GridElementModel,
   GroupElementModel,
   HighlighterElementModel,
   MindmapElementModel,
@@ -34,6 +37,7 @@ export {
 export enum CanvasElementType {
   BRUSH = 'brush',
   CONNECTOR = 'connector',
+  GRID = 'grid',
   GROUP = 'group',
   MINDMAP = 'mindmap',
   SHAPE = 'shape',
@@ -45,6 +49,7 @@ export type ElementModelMap = {
   ['shape']: ShapeElementModel;
   ['brush']: BrushElementModel;
   ['connector']: ConnectorElementModel;
+  ['grid']: GridElementModel;
   ['text']: TextElementModel;
   ['group']: GroupElementModel;
   ['mindmap']: MindmapElementModel;

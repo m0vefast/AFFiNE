@@ -26,7 +26,10 @@ export function toEdgelessEmbedBlock<
 
     override blockDraggable = false;
 
-    protected override embedContainerStyle: StyleInfo = {};
+    protected override embedContainerStyle: StyleInfo = {
+      width: '100%',
+      height: '100%',
+    };
 
     override [GfxElementSymbol] = true;
 
@@ -61,11 +64,13 @@ export function toEdgelessEmbedBlock<
     override renderGfxBlock() {
       const bound = Bound.deserialize(this.model.xywh);
 
-      this.embedContainerStyle.width = `${bound.w}px`;
-      this.embedContainerStyle.height = `${bound.h}px`;
       this.blockContainerStyles = {
         width: `${bound.w}px`,
+        height: `${bound.h}px`,
       };
+      // embedContainerStyle stays at { width: '100%', height: '100%' }
+      // so the embed container follows blockContainerStyles (Layer 2) sizing.
+      // Setting explicit pixels here is redundant and can go stale.
 
       return this.renderPageContent();
     }

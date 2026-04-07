@@ -215,10 +215,11 @@ export const moreActions = [
         id: 'a.turn-into-linked-doc',
         label: 'Turn into linked doc',
         icon: LinkedPageIcon(),
-        when(ctx) {
-          const models = ctx.getSurfaceModels();
+        when(_ctx) {
+          return false; // Disabled in Glyph canvas — no linked doc system
+          const models = _ctx.getSurfaceModels();
           if (models.length !== 1) return false;
-          return ctx.matchModel(models[0], NoteBlockModel);
+          return _ctx.matchModel(models[0], NoteBlockModel);
         },
         run(ctx) {
           const model = ctx.getCurrentModelByType(NoteBlockModel);
@@ -292,15 +293,16 @@ export const moreActions = [
         id: 'b.create-linked-doc',
         label: 'Create linked doc',
         icon: LinkedPageIcon(),
-        when(ctx) {
-          const models = ctx.getSurfaceModels();
+        when(_ctx) {
+          return false; // Disabled in Glyph canvas — no linked doc system
+          const models = _ctx.getSurfaceModels();
           if (models.length === 0) return false;
           if (models.length === 1) {
             return ![
               NoteBlockModel,
               EmbedLinkedDocModel,
               EmbedSyncedDocModel,
-            ].some(k => ctx.matchModel(models[0], k));
+            ].some(k => _ctx.matchModel(models[0], k));
           }
           return true;
         },

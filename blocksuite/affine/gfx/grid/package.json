@@ -1,0 +1,37 @@
+{
+  "name": "@blocksuite/affine-gfx-grid",
+  "description": "Gfx content grid for BlockSuite.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "sideEffects": false,
+  "keywords": [],
+  "author": "glyph",
+  "license": "MIT",
+  "dependencies": {
+    "@blocksuite/affine-block-surface": "workspace:*",
+    "@blocksuite/affine-components": "workspace:*",
+    "@blocksuite/affine-gfx-text": "workspace:*",
+    "@blocksuite/affine-ext-loader": "workspace:*",
+    "@blocksuite/affine-model": "workspace:*",
+    "@blocksuite/affine-shared": "workspace:*",
+    "@blocksuite/affine-widget-edgeless-toolbar": "workspace:*",
+    "@blocksuite/global": "workspace:*",
+    "@blocksuite/std": "workspace:*",
+    "lit": "^3.2.0",
+    "yjs": "^13.6.21"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./view": "./src/view.ts",
+    "./store": "./src/store.ts"
+  },
+  "files": [
+    "src",
+    "dist",
+    "!src/__tests__",
+    "!dist/__tests__"
+  ],
+  "version": "0.22.4"
+}

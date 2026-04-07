@@ -8,6 +8,7 @@ import { DividerViewExtension } from '@blocksuite/affine-block-divider/view';
 import { EdgelessTextViewExtension } from '@blocksuite/affine-block-edgeless-text/view';
 import { EmbedViewExtension } from '@blocksuite/affine-block-embed/view';
 import { EmbedDocViewExtension } from '@blocksuite/affine-block-embed-doc/view';
+import { EmbedMdViewExtension } from '@blocksuite/affine-block-embed-md/view';
 import { FrameViewExtension } from '@blocksuite/affine-block-frame/view';
 import { ImageViewExtension } from '@blocksuite/affine-block-image/view';
 import { LatexViewExtension } from '@blocksuite/affine-block-latex/view';
@@ -25,6 +26,7 @@ import { FramePanelViewExtension } from '@blocksuite/affine-fragment-frame-panel
 import { OutlineViewExtension } from '@blocksuite/affine-fragment-outline/view';
 import { BrushViewExtension } from '@blocksuite/affine-gfx-brush/view';
 import { ConnectorViewExtension } from '@blocksuite/affine-gfx-connector/view';
+import { GridViewExtension } from '@blocksuite/affine-gfx-grid/view';
 import { GroupViewExtension } from '@blocksuite/affine-gfx-group/view';
 import { LinkViewExtension as GfxLinkViewExtension } from '@blocksuite/affine-gfx-link/view';
 import { MindmapViewExtension } from '@blocksuite/affine-gfx-mindmap/view';
@@ -68,6 +70,7 @@ export function getInternalViewExtensions() {
     ShapeViewExtension,
     MindmapViewExtension,
     ConnectorViewExtension,
+    GridViewExtension,
     GroupViewExtension,
     TextViewExtension,
     TemplateViewExtension,
@@ -84,6 +87,7 @@ export function getInternalViewExtensions() {
     EdgelessTextViewExtension,
     EmbedViewExtension,
     EmbedDocViewExtension,
+    EmbedMdViewExtension,
     FrameViewExtension,
     ImageViewExtension,
     LatexViewExtension,

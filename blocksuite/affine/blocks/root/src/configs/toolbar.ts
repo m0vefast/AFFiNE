@@ -241,7 +241,8 @@ const turnIntoDatabase = {
   id: 'e.convert-to-database',
   tooltip: 'Create Table',
   icon: DatabaseTableViewIcon(),
-  when({ chain }) {
+  when({ chain }: any) {
+    return false; // Disabled in Glyph canvas — database not wired yet
     const middleware = (count = 0) => {
       return (ctx: { selectedBlocks: BlockComponent[] }, next: () => void) => {
         const { selectedBlocks } = ctx;
@@ -288,7 +289,8 @@ const turnIntoLinkedDoc = {
   id: 'f.convert-to-linked-doc',
   tooltip: 'Create Linked Doc',
   icon: LinkedPageIcon(),
-  when({ chain, std }) {
+  when({ chain, std }: any) {
+    return false; // Disabled in Glyph canvas — no linked doc system
     const supportFlavours = [
       EmbedLinkedDocBlockSchema,
       EmbedSyncedDocBlockSchema,

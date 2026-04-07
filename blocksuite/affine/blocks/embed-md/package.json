@@ -1,0 +1,20 @@
+{
+  "name": "@blocksuite/affine-block-embed-md",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./view": "./src/view.ts"
+  },
+  "files": ["src", "dist"],
+  "dependencies": {
+    "@blocksuite/affine-ext-loader": "workspace:*",
+    "@blocksuite/affine-model": "workspace:*",
+    "@blocksuite/affine-shared": "workspace:*",
+    "@blocksuite/global": "workspace:*",
+    "@blocksuite/std": "workspace:*",
+    "@blocksuite/store": "workspace:*",
+    "lit": "^3.2.0"
+  }
+}

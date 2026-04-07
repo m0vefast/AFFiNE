@@ -66,6 +66,13 @@ function handleGfxConnection(instance: GfxBlockComponent) {
       if (id === instance.model.id && type === 'update') {
         updateTransform(instance);
         updateZIndex(instance);
+        // Directly update width/height from xywh (same as renderBlock)
+        const { xywh$ } = instance.model;
+        if (xywh$) {
+          const [, , w, h] = JSON.parse(xywh$.value);
+          instance.style.width = `${w}px`;
+          instance.style.height = `${h}px`;
+        }
       }
     })
   );

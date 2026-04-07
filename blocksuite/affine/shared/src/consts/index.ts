@@ -43,7 +43,7 @@ export const EMBED_CARD_HEIGHT: Record<EmbedCardStyle, number> = {
   vertical: 390,
   cube: 114,
   cubeThick: 132,
-  video: 544,
+  video: 300,
   figma: 544,
   html: 544,
   syncedDoc: 455,

@@ -9,5 +9,10 @@ export class EmbedEdgelessYoutubeBlockComponent extends toEdgelessEmbedBlock(
 ) {}
 
 export const EmbedYoutubeBlockInteraction = createEmbedEdgelessBlockInteraction(
-  EmbedYoutubeBlockSchema.model.flavour
+  EmbedYoutubeBlockSchema.model.flavour,
+  {
+    resizeConstraint: {
+      lockRatio: false,
+    },
+  }
 );

@@ -22,6 +22,7 @@ export const styles = css`
   .affine-embed-youtube-video {
     flex-grow: 1;
     width: 100%;
+    height: 100%;
   }
 
   .affine-embed-youtube-video img,

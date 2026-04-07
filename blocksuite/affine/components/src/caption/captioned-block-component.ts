@@ -38,6 +38,9 @@ export class CaptionedBlockComponent<
   private _renderWithWidget(content: unknown) {
     const style = styleMap({
       position: 'relative',
+      // In edgeless mode (absolute-positioned parent), pass through height
+      // so children with height:100%/inherit can resolve to the root element's height.
+      ...(this.style.position === 'absolute' ? { height: '100%' } : {}),
       ...this.blockContainerStyles,
     });
     const theme = this.std.get(ThemeProvider).theme;
