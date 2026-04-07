@@ -35,6 +35,17 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
       text-wrap: nowrap !important;
     }
 
+    /* Constrain images inside edgeless-text to container bounds */
+    .edgeless-text-block-container affine-page-image {
+      max-height: 100%;
+    }
+    .edgeless-text-block-container affine-page-image .resizable-img {
+      max-height: 100%;
+    }
+    .edgeless-text-block-container affine-page-image .resizable-img img {
+      object-fit: contain;
+    }
+
     .edgeless-text-block-container affine-paragraph,
     affine-list {
       color: var(--edgeless-text-color);
@@ -280,6 +291,7 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
   }
 
   override renderGfxBlock() {
+    this.style.overflow = 'hidden';
     const { model } = this;
     const { rotate, hasMaxWidth } = model.props;
     const editing = this._editing;

@@ -157,6 +157,49 @@ export class GridView extends GfxElementModelView<GridElementModel> {
         ${s(':has(.embed-block-container) .embed-block-container')} {
           flex: 1; height: auto !important; min-height: 0;
         }
+
+        /* Attachment (PDF) embed view — same flex-fill chain, different container class */
+        ${s(':has(.affine-attachment-embed-container) > .edgeless-text-block-container')} {
+          height: 100%; display: flex; flex-direction: column;
+        }
+        ${s(':has(.affine-attachment-embed-container) > .edgeless-text-block-container > div')} {
+          flex: 1; display: flex; flex-direction: column; min-height: 0;
+        }
+        ${s(':has(.affine-attachment-embed-container) .affine-block-children-container')} {
+          flex: 1 !important; display: flex !important; flex-direction: column !important; min-height: 0;
+        }
+        ${s(' :has(> .affine-block-component > .affine-attachment-container)')} {
+          flex: 1; display: flex; flex-direction: column; min-height: 0;
+        }
+        ${s(' .affine-block-component:has(> .affine-attachment-container)')} {
+          flex: 1; display: flex; flex-direction: column; margin: 0 !important; min-height: 0;
+        }
+        ${s(':has(.affine-attachment-embed-container) .affine-attachment-container')} {
+          flex: 1; height: auto !important; min-height: 0; display: flex; flex-direction: column;
+        }
+        ${s(':has(.affine-attachment-embed-container) .affine-attachment-embed-container')} {
+          flex: 1; height: auto !important; min-height: 0;
+        }
+
+        /* embed-iframe — same flex-fill chain */
+        ${s(':has(.affine-embed-iframe-block-container) > .edgeless-text-block-container')} {
+          height: 100%; display: flex; flex-direction: column;
+        }
+        ${s(':has(.affine-embed-iframe-block-container) > .edgeless-text-block-container > div')} {
+          flex: 1; display: flex; flex-direction: column; min-height: 0;
+        }
+        ${s(':has(.affine-embed-iframe-block-container) .affine-block-children-container')} {
+          flex: 1 !important; display: flex !important; flex-direction: column !important; min-height: 0;
+        }
+        ${s(' :has(> .affine-block-component > .affine-embed-iframe-block-container)')} {
+          flex: 1; display: flex; flex-direction: column; min-height: 0;
+        }
+        ${s(' .affine-block-component:has(> .affine-embed-iframe-block-container)')} {
+          flex: 1; display: flex; flex-direction: column; margin: 0 !important; min-height: 0;
+        }
+        ${s(':has(.affine-embed-iframe-block-container) .affine-embed-iframe-block-container')} {
+          flex: 1; height: auto !important; min-height: 0;
+        }
       `;
     };
     updateGridCellCSS();

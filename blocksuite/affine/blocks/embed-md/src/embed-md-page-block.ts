@@ -159,7 +159,7 @@ export class EmbedMdBlockComponent extends CaptionedBlockComponent {
   protected containerStyleMap = styleMap({
     position: 'relative',
     width: '100%',
-    margin: '18px 0px',
+    height: '100%',
   });
 
   // Overlay signals — same pattern as YouTube/embed blocks
@@ -245,6 +245,9 @@ export class EmbedMdBlockComponent extends CaptionedBlockComponent {
 
   override firstUpdated() {
     this.disposables.addFromEvent(this, 'click', this.onClick.bind(this));
+    this.disposables.addFromEvent(this, 'dblclick', (e: MouseEvent) => {
+      e.stopPropagation();
+    });
   }
 
   override disconnectedCallback() {
