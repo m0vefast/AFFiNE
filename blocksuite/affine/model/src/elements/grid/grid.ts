@@ -75,6 +75,16 @@ export class GridElementModel
     return false;
   }
 
+  /** Use effective (preview-aware) dimensions so the stacking canvas
+   *  bounds stay in sync during resize drag — prevents content clipping. */
+  override get w() {
+    return this.totalWidth;
+  }
+
+  override get h() {
+    return this.totalHeight;
+  }
+
   override get rotate() {
     return 0;
   }

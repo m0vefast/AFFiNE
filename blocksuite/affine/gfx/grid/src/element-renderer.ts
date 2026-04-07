@@ -357,17 +357,20 @@ export const grid: ElementRenderer<GridElementModel> = (
   // ── "+" buttons (always visible) ──────────────────────
   const PLUS_R = 12;
   const PLUS_ICON = 5;
+  // Gap from grid edge to nearest point of button circle.
+  // Max extent = PLUS_R + PLUS_GAP + PLUS_R must stay ≤ STACKING_CANVAS_PADDING (32).
+  const PLUS_GAP = 6;
 
   // Add Column button (right edge center)
   drawPlusButton(ctx,
-    dx + totalW + PLUS_R + 16, dy + totalH / 2,
+    dx + totalW + PLUS_R + PLUS_GAP, dy + totalH / 2,
     PLUS_R, PLUS_ICON,
     model.hoveredAddButton === 'addCol', chrome
   );
 
   // Add Row button (bottom edge center)
   drawPlusButton(ctx,
-    dx + totalW / 2, dy + totalH + PLUS_R + 16,
+    dx + totalW / 2, dy + totalH + PLUS_R + PLUS_GAP,
     PLUS_R, PLUS_ICON,
     model.hoveredAddButton === 'addRow', chrome
   );

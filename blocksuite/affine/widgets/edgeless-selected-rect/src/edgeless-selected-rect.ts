@@ -741,17 +741,18 @@ export class EdgelessSelectedRectWidget extends WidgetComponent<RootBlockModel> 
   private _renderAutoComplete() {
     const { store, selection, block, _selectedRect } = this;
 
-    return !store.readonly &&
-      !selection.inoperable &&
-      !this.autoCompleteOff &&
-      !this._isResizing
-      ? html`<edgeless-auto-complete
-          .current=${selection.selectedElements[0]}
-          .edgeless=${block}
-          .selectedRect=${_selectedRect}
-        >
-        </edgeless-auto-complete>`
-      : nothing;
+    if (store.readonly || selection.inoperable || this.autoCompleteOff || this._isResizing)
+      return nothing;
+
+    const el = selection.selectedElements[0];
+    if (!el || !el.connectable) return nothing;
+
+    return html`<edgeless-auto-complete
+        .current=${el}
+        .edgeless=${block}
+        .selectedRect=${_selectedRect}
+      >
+      </edgeless-auto-complete>`;
   }
 
   override render() {

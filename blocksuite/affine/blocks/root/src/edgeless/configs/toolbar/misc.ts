@@ -186,7 +186,10 @@ export const builtinMiscToolbarConfig = {
       when(ctx) {
         const models = ctx.getSurfaceModels();
         if (models.length !== 1) return false;
-        return !ctx.matchModel(models[0], ConnectorElementModel);
+        if (ctx.matchModel(models[0], ConnectorElementModel)) return false;
+        const model = models[0];
+        if ('connectable' in model && !model.connectable) return false;
+        return true;
       },
       content(ctx) {
         const models = ctx.getSurfaceModels();

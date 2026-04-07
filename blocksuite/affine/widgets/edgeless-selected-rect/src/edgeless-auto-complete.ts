@@ -724,11 +724,10 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
 
   private _canAutoComplete() {
     const selection = this.gfx.selection;
-    return (
-      selection.selectedElements.length === 1 &&
-      (selection.selectedElements[0] instanceof ShapeElementModel ||
-        isNoteBlock(selection.selectedElements[0]))
-    );
+    if (selection.selectedElements.length !== 1) return false;
+    const el = selection.selectedElements[0];
+    if (!el.connectable) return false;
+    return el instanceof ShapeElementModel || isNoteBlock(el);
   }
 
   removeOverlay() {
@@ -744,7 +743,7 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
 
     if (
       this._isMoving ||
-      (this._isHover && !isShape && !this._canAutoComplete())
+      !this._canAutoComplete()
     ) {
       this.removeOverlay();
       return nothing;

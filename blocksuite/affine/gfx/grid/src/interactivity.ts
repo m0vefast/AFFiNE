@@ -234,10 +234,10 @@ export class GridDragExtension extends InteractivityExtension {
 
       // "+" button hover detection
       const [ox, oy] = grid.deserializedXYWH;
-      const addColBtnX = ox + grid.totalWidth + 28; // PLUS_R(12) + 16
+      const addColBtnX = ox + grid.totalWidth + 18; // PLUS_R(12) + PLUS_GAP(6)
       const addColBtnY = oy + grid.totalHeight / 2;
       const addRowBtnX = ox + grid.totalWidth / 2;
-      const addRowBtnY = oy + grid.totalHeight + 28;
+      const addRowBtnY = oy + grid.totalHeight + 18;
       const PLUS_HIT = Math.max(16, 20 / this.gfx.viewport.zoom);
 
       if (Math.abs(mx - addColBtnX) <= PLUS_HIT && Math.abs(my - addColBtnY) <= PLUS_HIT) {
@@ -377,10 +377,10 @@ export class GridDragExtension extends InteractivityExtension {
 
       // "+" button click → add row or column
       const [gox, goy] = grid.deserializedXYWH;
-      const addColX = gox + grid.totalWidth + 28;
+      const addColX = gox + grid.totalWidth + 18; // PLUS_R(12) + PLUS_GAP(6)
       const addColY = goy + grid.totalHeight / 2;
       const addRowX = gox + grid.totalWidth / 2;
-      const addRowY = goy + grid.totalHeight + 28;
+      const addRowY = goy + grid.totalHeight + 18;
       const PH = Math.max(16, 20 / this.gfx.viewport.zoom);
 
       if (Math.abs(mx - addColX) <= PH && Math.abs(my - addColY) <= PH) {
