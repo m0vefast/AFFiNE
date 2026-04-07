@@ -8,10 +8,8 @@ const flavour = EmbedMdBlockSchema.model.flavour;
 export const EmbedMdBlockSpec: ExtensionType[] = [
   FlavourExtension(flavour),
   BlockViewExtension(flavour, model => {
-    const parent = model.store.getParent(model.id);
-    if (parent?.flavour === 'affine:surface') {
-      return literal`affine-edgeless-embed-md`;
-    }
-    return literal`affine-embed-md`;
+    return model.parent?.flavour === 'affine:surface'
+      ? literal`affine-edgeless-embed-md`
+      : literal`affine-embed-md`;
   }),
 ];
