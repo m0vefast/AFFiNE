@@ -230,7 +230,9 @@ export class EmbedMdBlockComponent extends CaptionedBlockComponent {
       try { (window as any).glyph?.send?.('flowReadFile', { path: this.filePath }); } catch {}
     }
     const handler = (payload: any) => {
-      if (payload?.path !== this.filePath) return;
+      const fp = this.filePath;
+      (window as any).glyph?.send?.('debugLog', { msg: `[embed-md] handler called: payload.path=${payload?.path}, this.filePath=${fp}, match=${payload?.path === fp}` });
+      if (payload?.path !== fp) return;
       if (payload?.error) {
         this._error = payload.error;
         this._loading = false;
