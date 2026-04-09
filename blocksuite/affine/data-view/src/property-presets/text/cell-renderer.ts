@@ -21,9 +21,6 @@ export class TextCell extends BaseCellRenderer<string, string> {
   };
 
   private readonly _setValue = (str: string = this._inputEle?.value) => {
-    if (this._inputEle) {
-      this._inputEle.value = `${this.value ?? ''}`;
-    }
     this.valueSetNextTick(str);
   };
 
