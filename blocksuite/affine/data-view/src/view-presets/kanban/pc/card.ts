@@ -191,12 +191,22 @@ export class KanbanCard extends SignalWatcher(
     if (columns.length === 0) {
       return '';
     }
+    // Hide: header columns, groupBy column, and empty-value cells
+    const groupByColumnId = this.view.groupTrait.property$.value?.id;
     return html` <div class="card-body">
       ${repeat(
         columns,
         v => v.id,
         column => {
           if (this.view.isInHeader(column.id)) {
+            return '';
+          }
+          if (column.id === groupByColumnId) {
+            return '';
+          }
+          const cell = column.cellGetOrCreate(this.cardId);
+          const val = cell?.value$.value;
+          if (val == null || val === '' || (Array.isArray(val) && val.length === 0)) {
             return '';
           }
           return html` <affine-data-view-kanban-cell

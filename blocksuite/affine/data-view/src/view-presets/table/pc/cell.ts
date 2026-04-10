@@ -22,7 +22,7 @@ export class TableViewCellContainer extends SignalWatcher(
   static override styles = css`
     dv-table-view-cell-container {
       display: flex;
-      align-items: start;
+      align-items: center;
       width: 100%;
       height: 100%;
       border: none;

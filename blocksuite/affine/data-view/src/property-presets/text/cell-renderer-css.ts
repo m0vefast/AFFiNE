@@ -14,9 +14,8 @@ export const textStyle = css({
   color: 'var(--affine-text-primary-color)',
   fontWeight: '400',
   backgroundColor: 'transparent',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+  whiteSpace: 'normal',
+  wordBreak: 'break-word',
 });
 
 export const textInputStyle = css({
@@ -33,9 +32,8 @@ export const textInputStyle = css({
   fontWeight: '400',
   backgroundColor: 'transparent',
   cursor: 'text',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+  whiteSpace: 'normal',
+  wordBreak: 'break-word',
   ':focus': {
     outline: 'none',
   },

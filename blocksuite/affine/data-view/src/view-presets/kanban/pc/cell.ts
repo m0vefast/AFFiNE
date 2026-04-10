@@ -47,10 +47,43 @@ const styles = css`
     color: var(--affine-icon-color);
   }
 
+  affine-data-view-kanban-cell .field-label {
+    display: flex;
+    align-items: center;
+    width: 80px;
+    min-width: 80px;
+    flex-shrink: 0;
+    align-self: start;
+    height: var(--data-view-cell-text-line-height);
+  }
+
+  affine-data-view-kanban-cell .field-label .icon {
+    margin-right: 4px;
+    flex-shrink: 0;
+  }
+
+  affine-data-view-kanban-cell .field-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--affine-text-secondary-color);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  affine-data-view-kanban-cell .field-colon {
+    color: var(--affine-text-secondary-color);
+    margin-right: 8px;
+    align-self: start;
+    height: var(--data-view-cell-text-line-height);
+    line-height: var(--data-view-cell-text-line-height);
+  }
+
   .kanban-cell {
     flex: 1;
     display: block;
-    width: 196px;
+    min-width: 0;
   }
 `;
 
@@ -139,19 +172,23 @@ export class KanbanCell extends SignalWatcher(
     this.style.boxShadow = this.isEditing$.value
       ? '0px 0px 0px 2px rgba(30, 150, 235, 0.30)'
       : '';
-    return html` ${this.renderIcon()}
-    ${renderUniLit(view, props, {
-      ref: this._cell,
-      class: 'kanban-cell',
-      style: { display: 'block', flex: '1', overflow: 'hidden' },
-    })}`;
-  }
-
-  renderIcon() {
     if (this.contentOnly) {
-      return;
+      return html`${renderUniLit(view, props, {
+        ref: this._cell,
+        class: 'kanban-cell',
+        style: { display: 'block', flex: '1', overflow: 'hidden' },
+      })}`;
     }
-    return html` <uni-lit class="icon" .uni="${this.column.icon}"></uni-lit>`;
+    return html`
+      <div class="field-label">
+        <uni-lit class="icon" .uni="${this.column.icon}"></uni-lit>
+        <span class="field-name">${this.column.name$.value}</span>
+      </div>
+      <span class="field-colon">:</span>
+      ${renderUniLit(view, props, {
+        ref: this._cell,
+        class: 'kanban-cell',
+      })}`;
   }
 
   @property({ attribute: false })

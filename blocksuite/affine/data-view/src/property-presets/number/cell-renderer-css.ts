@@ -5,7 +5,7 @@ export const numberStyle = css({
   overflow: 'hidden',
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'flex-end',
+  justifyContent: 'flex-start',
   width: '100%',
   padding: '0',
   border: 'none',
@@ -30,7 +30,7 @@ export const numberInputStyle = css({
   color: 'var(--affine-text-primary-color)',
   fontWeight: '400',
   backgroundColor: 'transparent',
-  textAlign: 'right',
+  textAlign: 'left',
   ':focus': {
     outline: 'none',
   },
