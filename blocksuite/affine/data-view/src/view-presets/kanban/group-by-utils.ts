@@ -62,30 +62,29 @@ const createGroupByFromColumn = (
 };
 
 export const canGroupable = (dataSource: DataSource, propertyId: string) => {
-  return (
-    getKanbanGroupCapability(dataSource, propertyId) !== 'none' &&
-    hasMatchingGroupBy(dataSource, propertyId)
-  );
+  return hasMatchingGroupBy(dataSource, propertyId);
 };
 
 export const pickKanbanGroupColumn = (
   dataSource: DataSource,
   propertyIds: string[] = dataSource.properties$.value
 ): string | undefined => {
-  let immutableFallback: string | undefined;
+  let mutableFallback: string | undefined;
+  let anyFallback: string | undefined;
 
   for (const propertyId of propertyIds) {
-    const capability = getKanbanGroupCapability(dataSource, propertyId);
-    if (capability === 'none' || !hasMatchingGroupBy(dataSource, propertyId)) {
+    if (!hasMatchingGroupBy(dataSource, propertyId)) {
       continue;
     }
+    const capability = getKanbanGroupCapability(dataSource, propertyId);
     if (capability === 'mutable') {
       return propertyId;
     }
-    immutableFallback ??= propertyId;
+    mutableFallback ??= capability === 'immutable' ? propertyId : undefined;
+    anyFallback ??= propertyId;
   }
 
-  return immutableFallback;
+  return mutableFallback ?? anyFallback;
 };
 
 export const ensureKanbanGroupColumn = (

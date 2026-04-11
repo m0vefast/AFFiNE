@@ -328,14 +328,25 @@ const createSettingMenus = (
   }
   return settingItems;
 };
+export interface ExtraSettingItemsContext {
+  target: PopupTarget;
+  dataViewLogic: DataViewUILogicBase;
+  reopen: () => void;
+  closeMenu: () => void;
+}
+
 export const popViewOptions = (
   target: PopupTarget,
   dataViewLogic: DataViewUILogicBase,
-  onClose?: () => void
+  onClose?: () => void,
+  /** Glyph extension: extra menu items inserted between Layout and the standard
+   *  Properties/Filter/Sort/Group group. Used to add a "Source" row that points to a
+   *  custom data-source picker. Pure addition — does not change existing behavior. */
+  extraSettingItems?: (ctx: ExtraSettingItemsContext) => MenuConfig[]
 ) => {
   const view = dataViewLogic.view;
   const reopen = () => {
-    popViewOptions(target, dataViewLogic);
+    popViewOptions(target, dataViewLogic, onClose, extraSettingItems);
   };
   let handler: ReturnType<typeof popMenu>;
   const items: MenuConfig[] = [];
@@ -429,6 +440,19 @@ export const popViewOptions = (
       ],
     })
   );
+
+  // Glyph extension: extra items between Layout and Properties (e.g. Source row)
+  if (extraSettingItems) {
+    const extras = extraSettingItems({
+      target,
+      dataViewLogic,
+      reopen,
+      closeMenu: () => handler.close(),
+    });
+    if (extras.length > 0) {
+      items.push(menu.group({ items: extras }));
+    }
+  }
 
   items.push(
     menu.group({

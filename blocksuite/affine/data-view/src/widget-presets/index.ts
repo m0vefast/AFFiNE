@@ -8,3 +8,9 @@ export const widgetPresets = {
   createTools: createWidgetTools,
   tools: toolsWidgetPresets,
 };
+
+// Glyph extension: re-export popViewOptions so consumers can call it directly with extraSettingItems
+export {
+  popViewOptions,
+  type ExtraSettingItemsContext,
+} from './tools/presets/view-options/view-options.js';
