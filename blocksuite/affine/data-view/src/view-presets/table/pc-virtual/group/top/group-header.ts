@@ -94,13 +94,7 @@ export class TableGroupHeader extends SignalWatcher(
           });
         },
       }),
-      menu.action({
-        name: 'Delete Cards',
-        select: () => {
-          this.tableViewManager.rowsDelete(group.rows.map(row => row.rowId));
-          this.requestUpdate();
-        },
-      }),
+      // GLYPH PATCH: removed Delete Cards group action
     ]);
   };
 

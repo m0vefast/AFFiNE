@@ -57,8 +57,9 @@ export class KanbanHotkeysController implements ReactiveController {
             this.logic.selectionController.focusNext('right');
             return true;
           },
+          // GLYPH PATCH: Backspace card deletion removed
           Backspace: () => {
-            this.logic.selectionController.deleteCard();
+            return true;
           },
         })
       );

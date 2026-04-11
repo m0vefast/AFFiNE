@@ -23,11 +23,8 @@ export class TableHotkeysController implements ReactiveController {
     if (!selection) {
       return;
     }
+    // GLYPH PATCH: row delete via keyboard removed — only cell value clear allowed below
     if (TableViewRowSelection.is(selection)) {
-      const rows = TableViewRowSelection.rowsIds(selection);
-      this.selectionController.selection = undefined;
-      this.logic.view.rowsDelete(rows);
-      this.logic.ui$.value?.requestUpdate();
       return;
     }
     const { focus, rowsSelection, columnsSelection, isEditing, groupKey } =
@@ -154,27 +151,9 @@ export class TableHotkeysController implements ReactiveController {
           context.get('keyboardState').raw.preventDefault();
           return true;
         },
+        // GLYPH PATCH: Shift-Enter row insertion removed
         'Shift-Enter': () => {
-          const selection = this.selectionController.selection;
-          if (
-            !selection ||
-            TableViewRowSelection.is(selection) ||
-            selection.isEditing
-          ) {
-            return false;
-          }
-          const cell = this.selectionController.getCellContainer(
-            selection.groupKey,
-            selection.focus.rowIndex,
-            selection.focus.columnIndex
-          );
-          if (cell) {
-            this.selectionController.insertRowAfter(
-              selection.groupKey,
-              cell.rowId
-            );
-          }
-          return true;
+          return false;
         },
         Tab: ctx => {
           const selection = this.selectionController.selection;

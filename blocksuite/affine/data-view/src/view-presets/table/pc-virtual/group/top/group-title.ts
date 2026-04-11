@@ -66,9 +66,7 @@ export const GroupTitle = (
     </div>
     ${!ops.readonly
       ? html` <div class="${opsClass}">
-          <div @click="${ops.clickAdd}" class="${groupHeaderOp}">
-            ${PlusIcon()}
-          </div>
+          ${/* GLYPH PATCH: removed pc-virtual group-title add row button */ nothing}
           <div @click="${ops.clickOps}" class="${groupHeaderOp}">
             ${MoreHorizontalIcon()}
           </div>

@@ -31,19 +31,13 @@ export class TableClipboardController implements ReactiveController {
       row.cells.map(cell => cell.stringValue$.value ?? '')
     );
     if (isCut) {
-      const deleteRows: string[] = [];
+      // GLYPH PATCH: only clear cell values on cut, never delete rows
       for (const row of area) {
-        if (row.row) {
-          deleteRows.push(row.row.rowId);
-        } else {
+        if (!row.row) {
           for (const cell of row.cells) {
             cell.valueSet(undefined);
           }
         }
-      }
-      if (deleteRows.length) {
-        this.logic.view.rowsDelete(deleteRows);
-        this.logic.ui$.value?.requestUpdate();
       }
     }
     this.clipboard

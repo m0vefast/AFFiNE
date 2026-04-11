@@ -99,9 +99,7 @@ const GroupTitleMobile = (
     ${ops.readonly
       ? nothing
       : html` <div class="group-header-ops">
-          <div @click="${ops.clickAdd}" class="group-header-op add-card">
-            ${PlusIcon()}
-          </div>
+          ${/* GLYPH PATCH: removed group-title add row button */ nothing}
           <div @click="${ops.clickOps}" class="group-header-op">
             ${MoreHorizontalIcon()}
           </div>
@@ -214,9 +212,7 @@ export const GroupTitle = (
     ${ops.readonly
       ? nothing
       : html` <div class="group-header-ops">
-          <div @click="${ops.clickAdd}" class="group-header-op add-card">
-            ${PlusIcon()}
-          </div>
+          ${/* GLYPH PATCH: removed group-title add row button */ nothing}
           <div @click="${ops.clickOps}" class="group-header-op">
             ${MoreHorizontalIcon()}
           </div>

@@ -41,8 +41,8 @@ export const popRowMenu = (
   if (!TableViewRowSelection.is(selection)) {
     return;
   }
+  // GLYPH PATCH: removed Insert/Delete row actions — rows managed by source files
   if (selection.rows.length > 1) {
-    const rows = TableViewRowSelection.rowsIds(selection);
     popFilterableSimpleMenu(ele, [
       menu.group({
         name: '',
@@ -60,22 +60,6 @@ export const popRowMenu = (
           }),
         ],
       }),
-      menu.group({
-        name: '',
-        items: [
-          menu.action({
-            name: 'Delete Rows',
-            class: {
-              'delete-item': true,
-            },
-            prefix: DeleteIcon(),
-            select: () => {
-              selectionController.view.rowsDelete(rows);
-              selectionController.logic.ui$.value?.requestUpdate();
-            },
-          }),
-        ],
-      }),
     ]);
     return;
   }
@@ -88,45 +72,6 @@ export const popRowMenu = (
       select: () => {
         openDetail(tableViewLogic, row.id, selectionController);
       },
-    }),
-    menu.group({
-      name: '',
-      items: [
-        menu.action({
-          name: 'Insert Before',
-          prefix: html` <div
-            style="transform: rotate(90deg);display:flex;align-items:center;"
-          >
-            ${MoveLeftIcon()}
-          </div>`,
-          select: () => {
-            selectionController.insertRowBefore(row.groupKey, row.id);
-          },
-        }),
-        menu.action({
-          name: 'Insert After',
-          prefix: html` <div
-            style="transform: rotate(90deg);display:flex;align-items:center;"
-          >
-            ${MoveRightIcon()}
-          </div>`,
-          select: () => {
-            selectionController.insertRowAfter(row.groupKey, row.id);
-          },
-        }),
-      ],
-    }),
-    menu.group({
-      items: [
-        menu.action({
-          name: 'Delete Row',
-          class: { 'delete-item': true },
-          prefix: DeleteIcon(),
-          select: () => {
-            selectionController.deleteRow(row.id);
-          },
-        }),
-      ],
     }),
   ]);
 };

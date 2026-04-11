@@ -183,13 +183,7 @@ export class TableGroup extends SignalWatcher(
           });
         },
       }),
-      menu.action({
-        name: 'Delete Cards',
-        select: () => {
-          this.view.rowsDelete(group.rows.map(row => row.rowId));
-          this.requestUpdate();
-        },
-      }),
+      // GLYPH PATCH: removed Delete Cards group action
     ]);
   };
 
@@ -344,20 +338,7 @@ export class TableGroup extends SignalWatcher(
           }
         )}
       </div>
-      ${this.view.readonly$.value
-        ? null
-        : html` <div
-            class="data-view-table-group-add-row dv-hover"
-            @click="${this.clickAddRow}"
-          >
-            <div
-              class="data-view-table-group-add-row-button dv-icon-16"
-              data-test-id="affine-database-add-row-button"
-              role="button"
-            >
-              ${PlusIcon()}<span style="font-size: 12px">New Record</span>
-            </div>
-          </div>`}
+      ${null /* GLYPH PATCH: row add button removed — rows are managed by source files, not the dataview UI */}
       <affine-database-column-stats
         .tableViewLogic="${this.tableViewLogic}"
         .group="${this.group}"

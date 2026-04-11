@@ -42,7 +42,10 @@ export class DateCell extends BaseCellRenderer<number, number> {
       { once: true }
     );
     this._prevPortalAbortController = abortController;
-    if (IS_MOBILE) {
+    // GLYPH PATCH: always use popMenu (was: if IS_MOBILE) — desktop createLitPortal path
+    // doesn't render visibly in WKWebView. popMenu uses the same anchor system as
+    // multi-select picker which works fine.
+    if (true) {
       popMenu(popupTargetFromElement(this), {
         options: {
           title: {

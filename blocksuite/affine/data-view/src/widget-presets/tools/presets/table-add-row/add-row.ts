@@ -29,18 +29,8 @@ export class DataViewHeaderToolsAddRow extends WidgetBase {
   }
 
   override render() {
-    if (this.readonly$.value) {
-      return;
-    }
-    return html` <data-view-component-button
-      class="affine-database-toolbar-item new-record"
-      .onClick="${this.onAddNewRecord}"
-      .icon="${PlusIcon()}"
-      .text="${IS_MOBILE
-        ? html`<span style="font-weight: 500">New</span>`
-        : html`<span style="font-weight: 500">New Record</span>`}"
-    >
-    </data-view-component-button>`;
+    // GLYPH PATCH: New Record toolbar button removed
+    return;
   }
 }
 

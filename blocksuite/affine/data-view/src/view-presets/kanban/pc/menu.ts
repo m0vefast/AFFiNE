@@ -72,47 +72,6 @@ export const popCardMenu = (
             ) ?? [],
       },
     }),
-    menu.group({
-      name: '',
-      items: [
-        menu.action({
-          name: 'Insert Before',
-          prefix: html` <div
-            style="transform: rotate(90deg);display:flex;align-items:center;"
-          >
-            ${MoveLeftIcon()}
-          </div>`,
-          select: () => {
-            selection.insertRowBefore();
-          },
-        }),
-        menu.action({
-          name: 'Insert After',
-          prefix: html` <div
-            style="transform: rotate(90deg);display:flex;align-items:center;"
-          >
-            ${MoveRightIcon()}
-          </div>`,
-          select: () => {
-            selection.insertRowAfter();
-          },
-        }),
-      ],
-    }),
-    menu.group({
-      name: '',
-      items: [
-        menu.action({
-          name: 'Delete Card',
-          class: {
-            'delete-item': true,
-          },
-          prefix: DeleteIcon(),
-          select: () => {
-            selection.deleteCard();
-          },
-        }),
-      ],
-    }),
+    // GLYPH PATCH: removed Insert/Delete card actions — cards managed by source files
   ]);
 };
