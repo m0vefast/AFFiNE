@@ -16,6 +16,7 @@ import {
   SurfaceRefBlockSchema,
 } from '@blocksuite/affine-model';
 import {
+  ActionPlacement,
   NotificationProvider,
   type ToolbarContext,
   type ToolbarModuleConfig,
@@ -30,6 +31,7 @@ import { Bound } from '@blocksuite/global/gfx';
 import {
   EditIcon,
   InsertIntoPageIcon,
+  LinkIcon,
   UngroupIcon,
 } from '@blocksuite/icons/lit';
 import { type BlockComponent, BlockFlavourIdentifier } from '@blocksuite/std';
@@ -197,6 +199,29 @@ const builtinSurfaceToolbarConfig = {
           >
           </edgeless-color-picker-button>
         `;
+      },
+    },
+    {
+      placement: ActionPlacement.More,
+      id: 'd.copy-embed-link',
+      label: 'Copy Embed Link',
+      icon: LinkIcon(),
+      when: (ctx: ToolbarContext) => ctx.getSurfaceModelsByType(FrameBlockModel).length === 1,
+      run(ctx: ToolbarContext) {
+        const model = ctx.getCurrentModelByType(FrameBlockModel);
+        if (!model) return;
+        const filePath = (window as any).__glyphCurrentFilePath as string | undefined;
+        if (!filePath) {
+          toast(ctx.host, 'Save the canvas first');
+          return;
+        }
+        const fileName = filePath.split('/').pop() || filePath;
+        const link = `![[${fileName}#frame=${model.id}]]`;
+        navigator.clipboard.writeText(link).then(() => {
+          toast(ctx.host, `Copied: ${link}`);
+        }).catch(() => {
+          toast(ctx.host, 'Clipboard write failed');
+        });
       },
     },
   ],
