@@ -18,31 +18,48 @@ import {
 
 const marked = new Marked();
 
-const EMBED_CSS = `
+// Template with CSS variable placeholders — resolved at render time from parent document.
+const EMBED_CSS_TEMPLATE = `
   html { height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    font-size: 14px; line-height: 1.6; color: #1f2328;
+    font-size: 14px; line-height: 1.6; color: var(--text); background: var(--bg);
     padding: 16px 20px; margin: 0; word-wrap: break-word;
     height: 100%; overflow-y: auto; box-sizing: border-box;
   }
-  h1 { font-size: 1.6em; font-weight: 600; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid #d1d9e0; }
-  h2 { font-size: 1.35em; font-weight: 600; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #d1d9e0; }
+  h1 { font-size: 1.6em; font-weight: 600; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h2 { font-size: 1.35em; font-weight: 600; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   h3 { font-size: 1.15em; font-weight: 600; margin: 12px 0 6px; }
   p { margin: 0 0 10px; }
-  code { background: #f0f2f5; padding: 2px 5px; border-radius: 4px; font-size: 0.9em; font-family: 'SF Mono', Monaco, Menlo, monospace; }
-  pre { background: #f6f8fa; border-radius: 6px; padding: 12px 16px; overflow-x: auto; margin: 0 0 12px; }
+  code { background: var(--bg2); padding: 2px 5px; border-radius: 4px; font-size: 0.9em; font-family: 'SF Mono', Monaco, Menlo, monospace; }
+  pre { background: var(--bg2); border-radius: 6px; padding: 12px 16px; overflow-x: auto; margin: 0 0 12px; }
   pre code { background: none; padding: 0; font-size: 0.85em; }
-  blockquote { margin: 0 0 12px; padding: 4px 16px; border-left: 3px solid #d1d9e0; color: #636c76; }
+  blockquote { margin: 0 0 12px; padding: 4px 16px; border-left: 3px solid var(--border); color: var(--text2); }
   table { border-collapse: collapse; width: 100%; margin: 0 0 12px; }
-  th, td { border: 1px solid #d1d9e0; padding: 6px 12px; text-align: left; }
-  th { background: #f6f8fa; font-weight: 600; }
+  th, td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; }
+  th { background: var(--bg2); font-weight: 600; }
   ul, ol { padding-left: 24px; margin: 0 0 10px; }
   li { margin: 2px 0; }
-  hr { border: none; border-top: 1px solid #d1d9e0; margin: 16px 0; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   img { max-width: 100%; }
-  a { color: #0969da; text-decoration: none; }
+  a { color: var(--link); text-decoration: none; }
 `;
+
+function resolveEmbedCSS(): string {
+  const s = getComputedStyle(document.documentElement);
+  const v = (name: string, fallback: string) => s.getPropertyValue(name).trim() || fallback;
+  const vars = `
+    :root {
+      --text: ${v('--affine-text-primary-color', '#1f2328')};
+      --text2: ${v('--affine-text-secondary-color', '#636c76')};
+      --bg: ${v('--affine-background-primary-color', '#fff')};
+      --bg2: ${v('--affine-background-secondary-color', '#f6f8fa')};
+      --border: ${v('--affine-border-color', '#d1d9e0')};
+      --link: ${v('--affine-link-color', v('--affine-primary-color', '#0969da'))};
+    }
+  `;
+  return vars + EMBED_CSS_TEMPLATE;
+}
 
 /**
  * Embed-md block — contains ALL rendering logic.
@@ -223,6 +240,9 @@ export class EmbedMdBlockComponent extends CaptionedBlockComponent {
     this.std.clipboard.copySlice(slice).catch(console.error);
   };
 
+  private _themeObserver: MutationObserver | null = null;
+  private _lastContent: string | null = null;
+
   override connectedCallback() {
     super.connectedCallback();
     this.contentEditable = 'false';
@@ -237,10 +257,22 @@ export class EmbedMdBlockComponent extends CaptionedBlockComponent {
         this.requestUpdate();
         return;
       }
-      this._processContent(payload?.content ?? '');
+      this._lastContent = payload?.content ?? '';
+      this._processContent(this._lastContent!);
     };
     (window as any).__embedMdHandlers = (window as any).__embedMdHandlers ?? new Map();
     (window as any).__embedMdHandlers.set(this.model.id, handler);
+
+    // Re-render iframe when theme changes so dark/light stays in sync
+    this._themeObserver = new MutationObserver(() => {
+      if (this._lastContent !== null && this.isEmbed) {
+        this._processContent(this._lastContent);
+      }
+    });
+    this._themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
   }
 
   override firstUpdated() {
@@ -254,6 +286,8 @@ export class EmbedMdBlockComponent extends CaptionedBlockComponent {
     super.disconnectedCallback();
     (window as any).__embedMdHandlers?.delete?.(this.model.id);
     if (this._embedBlobUrl) { URL.revokeObjectURL(this._embedBlobUrl); this._embedBlobUrl = ''; }
+    this._themeObserver?.disconnect();
+    this._themeObserver = null;
   }
 
   private _processContent(content: string) {
@@ -261,8 +295,8 @@ export class EmbedMdBlockComponent extends CaptionedBlockComponent {
     this._error = null;
 
     const fullHtml = marked.parse(content) as string;
-    const embedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${EMBED_CSS}</style></head><body>${fullHtml}</body></html>`;
-    // Convert to blob URL — same rendering path as PDF embed
+    const css = resolveEmbedCSS();
+    const embedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${fullHtml}</body></html>`;
     if (this._embedBlobUrl) URL.revokeObjectURL(this._embedBlobUrl);
     this._embedBlobUrl = URL.createObjectURL(new Blob([embedHtml], { type: 'text/html' }));
     this.requestUpdate();

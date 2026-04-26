@@ -40,6 +40,12 @@ export class EmbedMdEdgelessBlockComponent extends toGfxBlockComponent(
     );
   }
 
+  // Cache content template during drag — only position changes, content is static.
+  // Parent wrapper already updates left/top via direct style; re-running renderPageContent()
+  // every frame is pure waste (Lit template allocation + signal subscription + diffing).
+  private _cachedContent: unknown = null;
+  private _contentKey = '';
+
   override renderGfxBlock() {
     const bound = Bound.deserialize(this.model.xywh);
 
@@ -48,7 +54,15 @@ export class EmbedMdEdgelessBlockComponent extends toGfxBlockComponent(
       height: `${bound.h}px`,
     };
 
-    return this.renderPageContent();
+    // Key on content-relevant state only — NOT position (x/y).
+    // Invalidates on: size change, view toggle, selection, load/error state, content update.
+    const key = `${bound.w}|${bound.h}|${(this as any)._embedBlobUrl}|${(this as any)._loading}|${(this as any)._error}|${(this.model as any).props?.embed}|${this.selected$.peek()}`;
+    if (key === this._contentKey && this._cachedContent !== null) {
+      return this._cachedContent;
+    }
+    this._contentKey = key;
+    this._cachedContent = this.renderPageContent();
+    return this._cachedContent;
   }
 
   protected override accessor blockContainerStyles: Record<string, string> | undefined = undefined;
