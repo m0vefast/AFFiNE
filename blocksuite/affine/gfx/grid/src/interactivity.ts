@@ -44,12 +44,20 @@ function detectGridLine(
   return null;
 }
 
-const HANDLE_W = 14;
-const HANDLE_MARGIN = 4;
+const HANDLE_W_NOM = 14;
+const HANDLE_MARGIN_NOM = 4;
 
-function detectRowHandle(grid: GridElementModel, mx: number, my: number): number {
+function handleScale(zoom: number): number {
+  // Cap at 1.75× — handles must stay within STACKING_CANVAS_PADDING (32px).
+  return Math.min(1.75, Math.max(1, 1 / zoom));
+}
+
+function detectRowHandle(grid: GridElementModel, mx: number, my: number, zoom: number): number {
+  const s = handleScale(zoom);
+  const hw = HANDLE_W_NOM * s;
+  const hm = HANDLE_MARGIN_NOM * s;
   const [ox, oy] = grid.deserializedXYWH;
-  if (mx < ox - HANDLE_W - HANDLE_MARGIN || mx > ox - HANDLE_MARGIN) return -1;
+  if (mx < ox - hw - hm || mx > ox - hm) return -1;
 
   let y = oy;
   for (let r = 0; r < grid.rows; r++) {
@@ -60,9 +68,12 @@ function detectRowHandle(grid: GridElementModel, mx: number, my: number): number
   return -1;
 }
 
-function detectColHandle(grid: GridElementModel, mx: number, my: number): number {
+function detectColHandle(grid: GridElementModel, mx: number, my: number, zoom: number): number {
+  const s = handleScale(zoom);
+  const hw = HANDLE_W_NOM * s;
+  const hm = HANDLE_MARGIN_NOM * s;
   const [ox, oy] = grid.deserializedXYWH;
-  if (my < oy - HANDLE_W - HANDLE_MARGIN || my > oy - HANDLE_MARGIN) return -1;
+  if (my < oy - hw - hm || my > oy - hm) return -1;
 
   let x = ox;
   for (let c = 0; c < grid.cols; c++) {
@@ -121,20 +132,20 @@ export class GridDragExtension extends InteractivityExtension {
   // ── element lookup ────────────────────────────────────
 
   private _findGridAt(mx: number, my: number): GridElementModel | null {
-    // Search wider to catch handle zones outside grid bounds
-    const pad = 44; // covers "+" buttons outside grid edge
+    // Search wider to catch handle zones outside grid bounds.
+    // Handles extend up to 31.5 model-px (18 * 1.75 cap). Buttons up to 30.
+    // Use 44 as generous uniform pad to cover all chrome.
+    const pad = 44;
     const bound = new Bound(mx - pad, my - pad, pad * 2, pad * 2);
     const elements = this.gfx.grid.search(bound);
     for (const el of elements) {
       if (!(el instanceof GridElementModel)) continue;
       const [ox, oy] = el.deserializedXYWH;
-      // Check if point is inside grid bounds (expanded for handles + "+" buttons)
-      const PLUS_ZONE = 44; // covers "+" buttons (center at +28, radius 12, + margin)
       if (
-        mx >= ox - HANDLE_W - HANDLE_MARGIN &&
-        mx <= ox + el.totalWidth + PLUS_ZONE &&
-        my >= oy - HANDLE_W - HANDLE_MARGIN &&
-        my <= oy + el.totalHeight + PLUS_ZONE
+        mx >= ox - pad &&
+        mx <= ox + el.totalWidth + pad &&
+        my >= oy - pad &&
+        my <= oy + el.totalHeight + pad
       ) {
         return el;
       }
@@ -232,7 +243,7 @@ export class GridDragExtension extends InteractivityExtension {
 
       this._lastHoveredGrid = grid;
 
-      // "+" button hover detection
+      // "+" button hover detection (nominal positions — not zoom-compensated)
       const [ox, oy] = grid.deserializedXYWH;
       const addColBtnX = ox + grid.totalWidth + 18; // PLUS_R(12) + PLUS_GAP(6)
       const addColBtnY = oy + grid.totalHeight / 2;
@@ -261,7 +272,10 @@ export class GridDragExtension extends InteractivityExtension {
       // Row-selection "+" buttons (above/below selected row)
       if (grid.selectionMode === 'row' && grid.selectedRow >= 0) {
         const selCb = grid.getCellBound(grid.selectedRow, 0);
-        const handleX = ox - HANDLE_W - HANDLE_MARGIN + HANDLE_W / 2;
+        const hs = handleScale(this.gfx.viewport.zoom);
+        const hwSel = HANDLE_W_NOM * hs;
+        const hmSel = HANDLE_MARGIN_NOM * hs;
+        const handleX = ox - hwSel - hmSel + hwSel / 2;
         const aboveY = selCb.y - 12 - 3;
         const belowY = selCb.y + selCb.h + 12 + 3;
         if (Math.abs(mx - handleX) <= PLUS_HIT && Math.abs(my - aboveY) <= PLUS_HIT) {
@@ -281,7 +295,10 @@ export class GridDragExtension extends InteractivityExtension {
       // Col-selection "+" buttons (left/right of selected col)
       if (grid.selectionMode === 'col' && grid.selectedCol >= 0) {
         const selCb = grid.getCellBound(0, grid.selectedCol);
-        const handleY = oy - HANDLE_W - HANDLE_MARGIN + HANDLE_W / 2;
+        const hsC = handleScale(this.gfx.viewport.zoom);
+        const hwC = HANDLE_W_NOM * hsC;
+        const hmC = HANDLE_MARGIN_NOM * hsC;
+        const handleY = oy - hwC - hmC + hwC / 2;
         const leftX = selCb.x - 12 - 3;
         const rightX = selCb.x + selCb.w + 12 + 3;
         if (Math.abs(mx - leftX) <= PLUS_HIT && Math.abs(my - handleY) <= PLUS_HIT) {
@@ -301,8 +318,8 @@ export class GridDragExtension extends InteractivityExtension {
       grid.hoveredAddButton = null;
 
       // Handle hover (always visible)
-      const rowH = detectRowHandle(grid, mx, my);
-      const colH = detectColHandle(grid, mx, my);
+      const rowH = detectRowHandle(grid, mx, my, this.gfx.viewport.zoom);
+      const colH = detectColHandle(grid, mx, my, this.gfx.viewport.zoom);
       grid.hoveredRowHandle = rowH;
       grid.hoveredColHandle = colH;
 
@@ -321,11 +338,11 @@ export class GridDragExtension extends InteractivityExtension {
         return;
       }
 
-      // Cell resize handle cursor (handles are outside cell edge)
+      // Cell resize handle cursor (handles are outside cell edge, zoom-compensated)
       if (grid.selectionMode === 'cell' && grid.selectedCell) {
         const sc = grid.selectedCell;
         const cb = grid.getCellBound(sc.row, sc.col);
-        const OFF = 6;
+        const OFF = 6 * handleScale(this.gfx.viewport.zoom);
         const HIT = Math.max(12, 16 / this.gfx.viewport.zoom);
 
         const rightX = cb.x + cb.w + OFF;
@@ -375,7 +392,7 @@ export class GridDragExtension extends InteractivityExtension {
 
       const raw = ctx.raw as PointerEvent;
 
-      // "+" button click → add row or column
+      // "+" button click → add row or column (nominal positions)
       const [gox, goy] = grid.deserializedXYWH;
       const addColX = gox + grid.totalWidth + 18; // PLUS_R(12) + PLUS_GAP(6)
       const addColY = goy + grid.totalHeight / 2;
@@ -397,7 +414,10 @@ export class GridDragExtension extends InteractivityExtension {
       // Row-selection "+" buttons (add above/below)
       if (grid.selectionMode === 'row' && grid.selectedRow >= 0) {
         const selCb = grid.getCellBound(grid.selectedRow, 0);
-        const hx = gox - HANDLE_W - HANDLE_MARGIN + HANDLE_W / 2;
+        const rs = handleScale(this.gfx.viewport.zoom);
+        const rhw = HANDLE_W_NOM * rs;
+        const rhm = HANDLE_MARGIN_NOM * rs;
+        const hx = gox - rhw - rhm + rhw / 2;
         const abY = selCb.y - 12 - 3;
         const blY = selCb.y + selCb.h + 12 + 3;
         if (Math.abs(mx - hx) <= PH && Math.abs(my - abY) <= PH) {
@@ -416,7 +436,10 @@ export class GridDragExtension extends InteractivityExtension {
       // Col-selection "+" buttons (add left/right)
       if (grid.selectionMode === 'col' && grid.selectedCol >= 0) {
         const selCb = grid.getCellBound(0, grid.selectedCol);
-        const hy = goy - HANDLE_W - HANDLE_MARGIN + HANDLE_W / 2;
+        const cs = handleScale(this.gfx.viewport.zoom);
+        const chw = HANDLE_W_NOM * cs;
+        const chm = HANDLE_MARGIN_NOM * cs;
+        const hy = goy - chw - chm + chw / 2;
         const ltX = selCb.x - 12 - 3;
         const rtX = selCb.x + selCb.w + 12 + 3;
         if (Math.abs(mx - ltX) <= PH && Math.abs(my - hy) <= PH) {
@@ -433,7 +456,7 @@ export class GridDragExtension extends InteractivityExtension {
       }
 
       // Row handle → click=select, drag=reorder (3px threshold)
-      const rowH = detectRowHandle(grid, mx, my);
+      const rowH = detectRowHandle(grid, mx, my, this.gfx.viewport.zoom);
       if (rowH >= 0) {
         ctx.preventDefault();
         this._gripDragActive = true; // block framework box selection immediately
@@ -445,7 +468,7 @@ export class GridDragExtension extends InteractivityExtension {
       }
 
       // Column handle → click=select, drag=reorder (3px threshold)
-      const colH = detectColHandle(grid, mx, my);
+      const colH = detectColHandle(grid, mx, my, this.gfx.viewport.zoom);
       if (colH >= 0) {
         ctx.preventDefault();
         this._gripDragActive = true;
@@ -459,11 +482,11 @@ export class GridDragExtension extends InteractivityExtension {
       // If grid is NOT selected, let framework handle (1st click → select grid)
       if (!this._isGridActive(grid)) return;
 
-      // Cell resize handle detection (handles are OUTSIDE cell edge)
+      // Cell resize handle detection (handles are OUTSIDE cell edge, zoom-compensated)
       if (grid.selectionMode === 'cell' && grid.selectedCell) {
         const sc = grid.selectedCell;
         const cb = grid.getCellBound(sc.row, sc.col);
-        const OFF = 6;
+        const OFF = 6 * handleScale(this.gfx.viewport.zoom);
         const HIT = Math.max(12, 16 / this.gfx.viewport.zoom);
 
         const rightX = cb.x + cb.w + OFF;

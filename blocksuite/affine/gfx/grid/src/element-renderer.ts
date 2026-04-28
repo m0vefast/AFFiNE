@@ -80,13 +80,14 @@ function drawSecPlusButton(
   ctx.fill();
   ctx.stroke();
 
+  const iconR = r * 0.45;
   ctx.strokeStyle  = hovered ? `${ACCENT} 0.80)` : chrome.btnIconSec;
   ctx.lineWidth    = 1.5;
   ctx.beginPath();
-  ctx.moveTo(x - 4, y);
-  ctx.lineTo(x + 4, y);
-  ctx.moveTo(x, y - 4);
-  ctx.lineTo(x, y + 4);
+  ctx.moveTo(x - iconR, y);
+  ctx.lineTo(x + iconR, y);
+  ctx.moveTo(x, y - iconR);
+  ctx.lineTo(x, y + iconR);
   ctx.stroke();
 }
 
@@ -290,15 +291,27 @@ export const grid: ElementRenderer<GridElementModel> = (
     }
   }
 
-  // ── Row/Col grab handles ───────────────────────────────
-  const HANDLE_W = 14;
-  const HANDLE_DOT_R = 1.5;
+  // ── Row/Col grab handles (zoom-compensated) ────────────
+  // Canvas ctx is scaled by zoom, so model-px * zoom = screen-px.
+  // To keep handles at a constant screen size, divide by zoom.
+  // Clamp to 1.75× max — handles must stay within STACKING_CANVAS_PADDING (32px).
+  // Handle max extent = (14 + 4) * s = 18 * 1.75 = 31.5 ≤ 32.
+  const zoom = renderer.viewport.zoom;
+  const zoomScale = Math.min(1.75, Math.max(1, 1 / zoom));
+  const HANDLE_W = 14 * zoomScale;
+  const HANDLE_H = 16 * zoomScale;
+  const HANDLE_DOT_R = 1.5 * zoomScale;
+  const HANDLE_GAP = 4 * zoomScale;
+  const HANDLE_DOT_SPACING_X = 6 * zoomScale;
+  const HANDLE_DOT_SPACING_Y = 4 * zoomScale;
+  const HANDLE_DOT_PAD = 4 * zoomScale;
+  const HANDLE_ROUND = 3 * zoomScale;
 
   // Row handles (left of grid)
   for (let r = 0; r < model.rows; r++) {
     const cb = model.getCellBound(r, 0);
-    const hx = cb.x - bound.x - HANDLE_W - 4;
-    const hy = cb.y - bound.y + cb.h / 2 - 8;
+    const hx = cb.x - bound.x - HANDLE_W - HANDLE_GAP;
+    const hy = cb.y - bound.y + cb.h / 2 - HANDLE_H / 2;
     const isHovered = model.hoveredRowHandle === r;
     const isSelected =
       model.selectionMode === 'row' && model.selectedRow === r;
@@ -306,7 +319,7 @@ export const grid: ElementRenderer<GridElementModel> = (
     if (isHovered || isSelected) {
       ctx.fillStyle = isSelected ? `${ACCENT} 0.15)` : `${ACCENT} 0.08)`;
       ctx.beginPath();
-      ctx.roundRect(hx, hy, HANDLE_W, 16, 3);
+      ctx.roundRect(hx, hy, HANDLE_W, HANDLE_H, HANDLE_ROUND);
       ctx.fill();
     }
 
@@ -318,7 +331,7 @@ export const grid: ElementRenderer<GridElementModel> = (
     for (let dr = 0; dr < 3; dr++) {
       for (let dc = 0; dc < 2; dc++) {
         ctx.beginPath();
-        ctx.arc(hx + 4 + dc * 6, hy + 4 + dr * 4, HANDLE_DOT_R, 0, Math.PI * 2);
+        ctx.arc(hx + HANDLE_DOT_PAD + dc * HANDLE_DOT_SPACING_X, hy + HANDLE_DOT_PAD + dr * HANDLE_DOT_SPACING_Y, HANDLE_DOT_R, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -327,8 +340,8 @@ export const grid: ElementRenderer<GridElementModel> = (
   // Column handles (above grid)
   for (let c = 0; c < model.cols; c++) {
     const cb = model.getCellBound(0, c);
-    const hx = cb.x - bound.x + cb.w / 2 - 8;
-    const hy = cb.y - bound.y - HANDLE_W - 4;
+    const hx = cb.x - bound.x + cb.w / 2 - HANDLE_H / 2;
+    const hy = cb.y - bound.y - HANDLE_W - HANDLE_GAP;
     const isHovered = model.hoveredColHandle === c;
     const isSelected =
       model.selectionMode === 'col' && model.selectedCol === c;
@@ -336,7 +349,7 @@ export const grid: ElementRenderer<GridElementModel> = (
     if (isHovered || isSelected) {
       ctx.fillStyle = isSelected ? `${ACCENT} 0.15)` : `${ACCENT} 0.08)`;
       ctx.beginPath();
-      ctx.roundRect(hx, hy, 16, HANDLE_W, 3);
+      ctx.roundRect(hx, hy, HANDLE_H, HANDLE_W, HANDLE_ROUND);
       ctx.fill();
     }
 
@@ -348,17 +361,17 @@ export const grid: ElementRenderer<GridElementModel> = (
     for (let dr = 0; dr < 2; dr++) {
       for (let dc = 0; dc < 3; dc++) {
         ctx.beginPath();
-        ctx.arc(hx + 4 + dc * 4, hy + 4 + dr * 6, HANDLE_DOT_R, 0, Math.PI * 2);
+        ctx.arc(hx + HANDLE_DOT_PAD + dc * HANDLE_DOT_SPACING_Y, hy + HANDLE_DOT_PAD + dr * HANDLE_DOT_SPACING_X, HANDLE_DOT_R, 0, Math.PI * 2);
         ctx.fill();
       }
     }
   }
 
-  // ── "+" buttons (always visible) ──────────────────────
+  // ── "+" buttons (nominal size — NOT zoom-compensated) ──
+  // These extend far from grid edge (center at 18px, radius 12, max extent 30px).
+  // Zoom compensation would push them beyond STACKING_CANVAS_PADDING (32px), causing clipping.
   const PLUS_R = 12;
   const PLUS_ICON = 5;
-  // Gap from grid edge to nearest point of button circle.
-  // Max extent = PLUS_R + PLUS_GAP + PLUS_R must stay ≤ STACKING_CANVAS_PADDING (32).
   const PLUS_GAP = 6;
 
   // Add Column button (right edge center)
@@ -389,7 +402,7 @@ export const grid: ElementRenderer<GridElementModel> = (
     ctx.strokeRect(sx, sy, sw, firstCell.h);
 
     // "+" buttons: add row above / below
-    const handleX = sx - HANDLE_W - 4 + HANDLE_W / 2;
+    const handleX = sx - HANDLE_W - HANDLE_GAP + HANDLE_W / 2;
     const aboveY = sy - PLUS_R - 3;
     const belowY = sy + firstCell.h + PLUS_R + 3;
 
@@ -412,7 +425,7 @@ export const grid: ElementRenderer<GridElementModel> = (
     ctx.strokeRect(sx, sy, firstCell.w, sh);
 
     // "+" buttons: add col left / right
-    const handleY = sy - HANDLE_W - 4 + HANDLE_W / 2;
+    const handleY = sy - HANDLE_W - HANDLE_GAP + HANDLE_W / 2;
     const leftX = sx - PLUS_R - 3;
     const rightX = sx + firstCell.w + PLUS_R + 3;
 
@@ -446,18 +459,18 @@ export const grid: ElementRenderer<GridElementModel> = (
     ctx.strokeRect(rx, ry, rw, rh);
   }
 
-  // ── Cell resize handles (drawn LAST = highest z-index) ─
+  // ── Cell resize handles (zoom-compensated, drawn LAST = highest z-index) ─
   if (model.selectionMode === 'cell' && model.selectedCell) {
     const sc = model.selectedCell;
     const cb = model.getCellBound(sc.row, sc.col);
     const cx = cb.x - bound.x;
     const cy = cb.y - bound.y;
-    const HR = 5;
-    const OFF = HR + 1;
+    const HR = 5 * zoomScale;
+    const OFF = 6 * zoomScale;
 
     ctx.fillStyle = chrome.resizeHandleFill;
     ctx.strokeStyle = `${ACCENT} 0.9)`;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 * zoomScale;
 
     // Right edge at 72% height -> col resize
     ctx.beginPath();
