@@ -9,8 +9,7 @@ export const widgetPresets = {
   tools: toolsWidgetPresets,
 };
 
-// Glyph extension: re-export popViewOptions so consumers can call it directly with extraSettingItems
-export {
-  popViewOptions,
-  type ExtraSettingItemsContext,
-} from './tools/presets/view-options/view-options.js';
+// Glyph extension: re-export popViewOptions so consumers can call it directly.
+// Glyph-specific menu items should be injected via dataViewLogic.getViewOptionsSettingItems
+// (upstream hook added in #14984 / canary 2026-05).
+export { popViewOptions } from './tools/presets/view-options/view-options.js';

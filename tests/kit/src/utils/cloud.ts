@@ -154,15 +154,14 @@ export async function cleanupWorkspace(workspaceId: string): Promise<void> {
 
 export async function switchDefaultChatModel(model: string) {
   await runPrisma(async client => {
-    const promptId = await client.aiPrompt
-      .findFirst({
-        where: { name: 'Chat With AFFiNE AI' },
-        select: { id: true },
-      })
-      .then(f => f!.id);
+    const prompt = await client.aiPrompt.findFirst({
+      where: { name: 'Chat With AFFiNE AI' },
+      select: { id: true },
+    });
+    if (!prompt) return;
 
     await client.aiPrompt.update({
-      where: { id: promptId },
+      where: { id: prompt.id },
       data: { model },
     });
   });
@@ -180,7 +179,7 @@ export async function createRandomAIUser(): Promise<{
     password: '123456',
   };
   const result = await runPrisma(async client => {
-    await client.user.create({
+    const created = await client.user.create({
       data: {
         ...user,
         emailVerifiedAt: new Date(),
@@ -204,11 +203,21 @@ export async function createRandomAIUser(): Promise<{
       },
     });
 
-    return await client.user.findUnique({
-      where: {
-        email: user.email,
+    await client.entitlement.create({
+      data: {
+        targetType: 'user',
+        targetId: created.id,
+        source: 'cloud_subscription',
+        plan: 'ai',
+        status: 'active',
+        subjectId: `test-ai:${created.id}`,
+        metadata: {
+          legacySync: false,
+        },
       },
     });
+
+    return created;
   });
   cloudUserSchema.parse(result);
   return {
