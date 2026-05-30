@@ -1,7 +1,10 @@
 import type { GridElementModel } from '@blocksuite/affine-model';
 import { Bound } from '@blocksuite/global/gfx';
 
-const CELL_PADDING = 2;
+// 6px gives a visible cell frame around content even when the child fills
+// the cell — matches Numbers / Excel and makes Layer 2 cell-selection
+// visually obvious without relying on user click precision.
+const CELL_PADDING = 6;
 
 /**
  * Position each child element in its assigned grid cell.
@@ -12,7 +15,11 @@ export function layoutGrid(model: GridElementModel): void {
     const element = model.getChildById(id);
     if (!element) continue;
 
-    const cellBound = model.getCellBound(detail.row, detail.col);
+    // Use merged region bound when (row,col) is a merge origin; otherwise
+    // falls back to the cell's own bound. Children placed in cells that
+    // are occluded by another merge keep their own cell bound (visually
+    // they end up under the merged region — rare in practice).
+    const cellBound = model.getMergeBound(detail.row, detail.col);
 
     const maxW = cellBound.w - CELL_PADDING * 2;
     const maxH = cellBound.h - CELL_PADDING * 2;

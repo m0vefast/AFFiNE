@@ -5,6 +5,7 @@ import {
 
 import { GridElementRendererExtension } from './element-renderer';
 import { GridDragExtension } from './interactivity';
+import { gridToolbarExtension } from './toolbar';
 import { GridInteraction, GridView } from './view/view';
 
 export class GridViewExtension extends ViewExtensionProvider {
@@ -16,5 +17,6 @@ export class GridViewExtension extends ViewExtensionProvider {
     context.register(GridView);
     context.register(GridInteraction);
     context.register(GridDragExtension);
+    context.register(gridToolbarExtension);
   }
 }
