@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "tsc",
     "test:unit": "vitest --browser.headless --run",
-    "test:debug": "PWDEBUG=1 npx vitest --browser.headless=false"
+    "test:debug": "PWDEBUG=1 pnpm exec vitest --browser.headless=false"
   },
   "sideEffects": false,
   "keywords": [],
