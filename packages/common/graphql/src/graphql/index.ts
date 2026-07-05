@@ -448,9 +448,9 @@ export const listUsersQuery = {
 export const sendTestEmailMutation = {
   id: 'sendTestEmailMutation' as const,
   op: 'sendTestEmail',
-  query: `mutation sendTestEmail($host: String!, $port: Int!, $sender: String!, $username: String!, $password: String!, $ignoreTLS: Boolean!) {
+  query: `mutation sendTestEmail($name: String!, $host: String!, $port: Int!, $sender: String!, $username: String!, $password: String!, $ignoreTLS: Boolean!) {
   sendTestEmail(
-    config: {host: $host, port: $port, sender: $sender, username: $username, password: $password, ignoreTLS: $ignoreTLS}
+    config: {name: $name, host: $host, port: $port, sender: $sender, username: $username, password: $password, ignoreTLS: $ignoreTLS}
   )
 }`,
 };
@@ -1887,7 +1887,7 @@ export const getCurrentUserQuery = {
     }
   }
 }`,
-  deprecations: ["'token' is deprecated: use [/api/auth/sign-in?native=true] instead"],
+  deprecations: ["'token' is deprecated: use native session exchange instead"],
 };
 
 export const getDocCreatedByUpdatedByListQuery = {
@@ -2348,7 +2348,6 @@ export const invoicesQuery = {
   currentUser {
     invoiceCount
     invoices(take: $take, skip: $skip) {
-      id
       status
       currency
       amount
@@ -2359,7 +2358,6 @@ export const invoicesQuery = {
     }
   }
 }`,
-  deprecations: ["'id' is deprecated: removed"],
 };
 
 export const leaveWorkspaceMutation = {
@@ -2983,10 +2981,8 @@ export const inviteByEmailsMutation = {
   inviteMembers(workspaceId: $workspaceId, emails: $emails) {
     email
     inviteId
-    sentSuccess
   }
 }`,
-  deprecations: ["'sentSuccess' is deprecated: Notification will be sent asynchronously"],
 };
 
 export const acceptInviteByInviteIdMutation = {
@@ -3023,7 +3019,6 @@ export const workspaceInvoicesQuery = {
   workspace(id: $workspaceId) {
     invoiceCount
     invoices(take: $take, skip: $skip) {
-      id
       status
       currency
       amount
@@ -3034,7 +3029,6 @@ export const workspaceInvoicesQuery = {
     }
   }
 }`,
-  deprecations: ["'id' is deprecated: removed"],
 };
 
 export const getWorkspaceRolePermissionsQuery = {

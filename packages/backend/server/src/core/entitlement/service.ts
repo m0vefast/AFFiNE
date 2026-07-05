@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Entitlement, Prisma, PrismaClient } from '@prisma/client';
 
 import { BadRequest, CryptoHelper, EventBus } from '../../base';
-import { resolveEntitlementV1 } from '../../native';
+import { checkLicenseHealth, resolveEntitlementV1 } from '../../native';
 import {
   SubscriptionPlan,
   SubscriptionRecurring,
@@ -47,15 +47,7 @@ export interface SelfhostLicenseEntitlementInput {
   license?: Buffer | null;
 }
 
-interface RemoteSelfhostLicense {
-  plan: string;
-  recurring: string;
-  quantity: number;
-  endAt: number;
-}
-
 const REMOTE_SELFHOST_LICENSE_REVALIDATE_INTERVAL = 1000 * 60 * 10;
-const REMOTE_SELFHOST_LICENSE_HEALTH_TIMEOUT = 10_000;
 
 declare global {
   interface Events {
@@ -183,7 +175,7 @@ export class EntitlementService {
       quantity:
         targetType === 'workspace'
           ? this.normalizedQuantity(input.quantity)
-          : undefined,
+          : null,
       metadata: {
         provider: input.provider ?? 'stripe',
         recurring: input.recurring,
@@ -192,8 +184,8 @@ export class EntitlementService {
         stripeSubscriptionId: input.stripeSubscriptionId ?? null,
         legacySync: options.legacySync ?? false,
       },
-      startsAt: input.start ?? undefined,
-      expiresAt: input.end ?? undefined,
+      startsAt: input.start ?? null,
+      expiresAt: input.end ?? null,
       graceUntil:
         status === 'grace' ? (input.trialEnd ?? input.end ?? new Date()) : null,
       validatedAt: new Date(),
@@ -306,6 +298,7 @@ export class EntitlementService {
     targetType: TargetType,
     targetId: string
   ) {
+    // TODO(stable-upgrade): remove legacy subscription import after stable no longer writes old subscriptions.
     if (env.selfhosted || targetType === 'instance') {
       return;
     }
@@ -332,7 +325,11 @@ export class EntitlementService {
     return task;
   }
 
-  async upsertFromSelfhostLicense(input: SelfhostLicenseEntitlementInput) {
+  async upsertFromSelfhostLicense(
+    input: SelfhostLicenseEntitlementInput,
+    options: { emit?: boolean } = {}
+  ) {
+    const emit = options.emit ?? true;
     const resolved = input.license
       ? resolveEntitlementV1({
           deploymentType: 'selfhosted',
@@ -380,12 +377,16 @@ export class EntitlementService {
         where: { id: entitlement.id },
         data,
       });
-      await this.emitEntitlementChanged(updated);
+      if (emit) {
+        await this.emitEntitlementChanged(updated);
+      }
       return updated;
     }
 
     const created = await this.db.entitlement.create({ data });
-    await this.emitEntitlementChanged(created);
+    if (emit) {
+      await this.emitEntitlementChanged(created);
+    }
     return created;
   }
 
@@ -393,8 +394,10 @@ export class EntitlementService {
     input: Omit<SelfhostLicenseEntitlementInput, 'license'> & {
       licenseKey: string;
       quantity: number;
-    }
+    },
+    options: { emit?: boolean } = {}
   ) {
+    const emit = options.emit ?? true;
     const entitlement = await this.findBySubject(
       'selfhost_license',
       input.licenseKey
@@ -423,20 +426,28 @@ export class EntitlementService {
         where: { id: entitlement.id },
         data,
       });
-      await this.emitEntitlementChanged(updated);
+      if (emit) {
+        await this.emitEntitlementChanged(updated);
+      }
       return updated;
     }
 
     const created = await this.db.entitlement.create({ data });
-    await this.emitEntitlementChanged(created);
+    if (emit) {
+      await this.emitEntitlementChanged(created);
+    }
     return created;
   }
 
-  async markSelfhostLicenseNeedsReupload(input: {
-    workspaceId?: string;
-    licenseKey: string;
-    reason: string;
-  }) {
+  async markSelfhostLicenseNeedsReupload(
+    input: {
+      workspaceId?: string;
+      licenseKey: string;
+      reason: string;
+    },
+    options: { emit?: boolean } = {}
+  ) {
+    const emit = options.emit ?? true;
     const entitlement = await this.findBySubject(
       'selfhost_license',
       input.licenseKey
@@ -462,12 +473,16 @@ export class EntitlementService {
         where: { id: entitlement.id },
         data,
       });
-      await this.emitEntitlementChanged(updated);
+      if (emit) {
+        await this.emitEntitlementChanged(updated);
+      }
       return updated;
     }
 
     const created = await this.db.entitlement.create({ data });
-    await this.emitEntitlementChanged(created);
+    if (emit) {
+      await this.emitEntitlementChanged(created);
+    }
     return created;
   }
 
@@ -844,44 +859,25 @@ export class EntitlementService {
       return cached.entitlement;
     }
 
-    const endpoint =
-      process.env.AFFINE_PRO_SERVER_ENDPOINT ?? 'https://app.affine.pro';
-    const signal = AbortSignal.timeout(REMOTE_SELFHOST_LICENSE_HEALTH_TIMEOUT);
     try {
-      const res = await fetch(
-        `${endpoint}/api/team/licenses/${entitlement.subjectId}/health`,
-        {
-          signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-validate-key': metadata.validateKey,
-          },
-        }
-      );
-      if (!res.ok) {
-        if (res.status >= 500) {
+      const res = await checkLicenseHealth({
+        licenseKey: entitlement.subjectId,
+        validateKey: metadata.validateKey,
+      });
+      if (res.error) {
+        if (res.error.status >= 500) {
           return this.remoteSelfhostFallbackEntitlement(entitlement);
         }
 
         await this.markRemoteSelfhostLicenseNeedsReupload(
           entitlement,
-          `Remote license health check failed: ${res.status}`
+          `Remote license health check failed: ${res.error.status}`
         );
         return null;
       }
 
-      const payload = (await res
-        .json()
-        .catch(() => null)) as RemoteSelfhostLicense | null;
-      if (!payload) {
-        return this.remoteSelfhostFallbackEntitlement(entitlement);
-      }
-      const expiresAt = this.remoteSelfhostLicenseExpiresAt(payload.endAt);
-      if (
-        payload.plan !== SubscriptionPlan.SelfHostedTeam ||
-        payload.quantity < 1 ||
-        !expiresAt
-      ) {
+      const license = res.license;
+      if (!license || license.plan !== SubscriptionPlan.SelfHostedTeam) {
         await this.markRemoteSelfhostLicenseNeedsReupload(
           entitlement,
           'Remote license health payload is invalid.'
@@ -889,17 +885,17 @@ export class EntitlementService {
         return null;
       }
 
-      const validateKey =
-        res.headers.get('x-next-validate-key') ?? metadata.validateKey;
+      const expiresAt = new Date(license.expiresAt);
+      const validateKey = license.validateKey || metadata.validateKey;
       const [updated] = await Promise.all([
         this.db.entitlement.update({
           where: { id: entitlement.id },
           data: {
             status: 'active',
-            quantity: this.normalizedQuantity(payload.quantity),
+            quantity: this.normalizedQuantity(license.quantity),
             metadata: {
               ...metadata,
-              recurring: payload.recurring,
+              recurring: license.recurring,
               validateKey,
               remoteValidated: true,
               errorCode: null,
@@ -913,8 +909,8 @@ export class EntitlementService {
           .updateMany({
             where: { key: entitlement.subjectId },
             data: {
-              quantity: this.normalizedQuantity(payload.quantity),
-              recurring: payload.recurring,
+              quantity: this.normalizedQuantity(license.quantity),
+              recurring: license.recurring,
               validateKey,
               validatedAt: new Date(),
               expiredAt: expiresAt,
@@ -948,14 +944,6 @@ export class EntitlementService {
     }
 
     return cached.entitlement;
-  }
-
-  private remoteSelfhostLicenseExpiresAt(endAt: unknown) {
-    const expiresAt = new Date(endAt as string | number | Date);
-    if (!Number.isFinite(expiresAt.getTime()) || expiresAt <= new Date()) {
-      return null;
-    }
-    return expiresAt;
   }
 
   private async markRemoteSelfhostLicenseNeedsReupload(

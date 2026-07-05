@@ -52,8 +52,19 @@ test.before(async t => {
   t.context.state = module.get(QuotaStateService);
 });
 
+test.beforeEach(async t => {
+  await t.context.module.initTestingDB();
+});
+
+test.after.always(async t => {
+  await t.context.module.close();
+});
+
 test('quota service ignores dirty legacy commercial features', async t => {
   const { owner, workspace } = await createWorkspace(t);
+  await t.context.state.reconcileUserQuotaState(owner.id);
+  await t.context.state.reconcileWorkspaceQuotaState(workspace.id);
+
   await t.context.models.userFeature.add(
     owner.id,
     'pro_plan_v1',
@@ -155,7 +166,6 @@ test('quota service exposes history period in seconds', async t => {
       usedStorageQuota: 0,
       memberCount: 1,
       overcapacityMemberCount: 0,
-      usedSize: 0,
     }).historyPeriod,
     '30 days'
   );
@@ -247,6 +257,46 @@ test('user quota state keeps ai capability alongside pro entitlement', async t =
   t.is(quota.copilotActionLimit, undefined);
 });
 
+test('user quota state restores ai overlay after stale expiry is cleared', async t => {
+  const { owner } = await createWorkspace(t);
+  await t.context.entitlement.upsertFromCloudSubscription({
+    targetId: owner.id,
+    plan: SubscriptionPlan.Pro,
+    recurring: SubscriptionRecurring.Yearly,
+    status: 'active',
+  });
+  await t.context.db.entitlement.create({
+    data: {
+      targetType: 'user',
+      targetId: owner.id,
+      source: 'cloud_subscription',
+      plan: 'ai',
+      status: 'active',
+      subjectId: `${owner.id}:${SubscriptionPlan.AI}`,
+      metadata: {},
+      expiresAt: new Date('2020-01-01T00:00:00Z'),
+    },
+  });
+
+  await t.context.entitlement.upsertFromCloudSubscription({
+    targetId: owner.id,
+    plan: SubscriptionPlan.AI,
+    recurring: SubscriptionRecurring.Monthly,
+    status: 'active',
+  });
+  const state = await t.context.state.reconcileUserQuotaState(owner.id);
+  const ai = await t.context.db.entitlement.findFirstOrThrow({
+    where: {
+      targetId: owner.id,
+      source: 'cloud_subscription',
+      plan: 'ai',
+    },
+  });
+
+  t.is(ai.expiresAt, null);
+  t.deepEqual(state.flags, { unlimitedCopilot: true });
+});
+
 test('ai entitlement is a capability overlay on free quota', async t => {
   const { owner } = await createWorkspace(t);
   await t.context.entitlement.upsertFromCloudSubscription({
@@ -267,6 +317,8 @@ test('ai entitlement is a capability overlay on free quota', async t => {
 
 test('workspace team status ignores dirty legacy feature', async t => {
   const { workspace } = await createWorkspace(t);
+  await t.context.state.reconcileWorkspaceQuotaState(workspace.id);
+
   await t.context.models.workspaceFeature.add(
     workspace.id,
     'team_plan_v1',
@@ -285,6 +337,7 @@ test('workspace team status ignores dirty legacy feature', async t => {
     status: 'active',
     quantity: 5,
   });
+  await t.context.state.reconcileWorkspaceQuotaState(workspace.id);
 
   t.true(await t.context.models.workspace.isTeamWorkspace(workspace.id));
 });
@@ -318,15 +371,10 @@ test('selfhosted builtin free has cloud pro quota rights', async t => {
   }
 });
 
-test.beforeEach(async t => {
-  await t.context.module.initTestingDB();
-});
-
-test.after.always(async t => {
-  await t.context.module.close();
-});
-
 test('reconciles quota states from entitlements and business tables', async t => {
+  const previousDeploymentType = globalThis.env.DEPLOYMENT_TYPE;
+  // @ts-expect-error test mutates env singleton for cloud entitlement semantics
+  globalThis.env.DEPLOYMENT_TYPE = 'affine';
   const cases = [
     {
       name: 'owner fallback uses user entitlement and owner storage usage',
@@ -444,10 +492,15 @@ test('reconciles quota states from entitlements and business tables', async t =>
     },
   ];
 
-  for (const item of cases) {
-    await t.context.module.initTestingDB();
-    const state = await item.setup();
-    await item.assert(state);
+  try {
+    for (const item of cases) {
+      await t.context.module.initTestingDB();
+      const state = await item.setup();
+      await item.assert(state);
+    }
+  } finally {
+    // @ts-expect-error restore mutable test env singleton
+    globalThis.env.DEPLOYMENT_TYPE = previousDeploymentType;
   }
 });
 

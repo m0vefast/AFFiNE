@@ -53,7 +53,7 @@ test('admin feature resolver rejects commercial projection features', async t =>
 
 test('should get null if user feature not found', async t => {
   const { model, u1 } = t.context;
-  const userFeature = await model.get(u1.id, 'ai_early_access');
+  const userFeature = await model.get(u1.id, 'administrator');
   t.is(userFeature, null);
 });
 
@@ -93,7 +93,7 @@ test('should directly test user feature existence', async t => {
 
   await model.add(u1.id, 'free_plan_v1', 'legacy projection');
   t.true(await model.has(u1.id, 'free_plan_v1'));
-  t.false(await model.has(u1.id, 'ai_early_access'));
+  t.false(await model.has(u1.id, 'administrator'));
 });
 
 test('should add user feature', async t => {
@@ -150,20 +150,26 @@ test('should not switch user quota if the new quota is the same as the current o
 });
 
 test('should use pro plan as free for selfhost instance', async t => {
+  const previousDeploymentType = env.DEPLOYMENT_TYPE;
   // @ts-expect-error DEPLOYMENT_TYPE is readonly
   env.DEPLOYMENT_TYPE = 'selfhosted';
-  await using module = await createTestingModule();
+  try {
+    await using module = await createTestingModule();
 
-  const models = module.get(Models);
-  const u1 = await models.user.create({
-    email: 'u1@affine.pro',
-    registered: true,
-  });
+    const models = module.get(Models);
+    const u1 = await models.user.create({
+      email: 'u1@affine.pro',
+      registered: true,
+    });
 
-  await models.userFeature.add(u1.id, 'free_plan_v1', 'legacy projection');
-  const quota = await models.userFeature.getQuota(u1.id);
-  t.snapshot(
-    quota?.configs,
-    'use pro plan as free plan for selfhosted instance'
-  );
+    await models.userFeature.add(u1.id, 'free_plan_v1', 'legacy projection');
+    const quota = await models.userFeature.getQuota(u1.id);
+    t.snapshot(
+      quota?.configs,
+      'use pro plan as free plan for selfhosted instance'
+    );
+  } finally {
+    // @ts-expect-error DEPLOYMENT_TYPE is readonly
+    env.DEPLOYMENT_TYPE = previousDeploymentType;
+  }
 });

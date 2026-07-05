@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   Args,
   Int,
@@ -15,11 +16,13 @@ import {
 import { nanoid } from 'nanoid';
 
 import {
+  ActionForbidden,
   ActionForbiddenOnNonTeamWorkspace,
   AlreadyInSpace,
   AuthenticationRequired,
   Cache,
   CanNotRevokeYourself,
+  Config,
   EventBus,
   InvalidInvitation,
   isValidCacheTtl,
@@ -45,6 +48,7 @@ import {
 import { QuotaService } from '../../quota';
 import { UserType } from '../../user';
 import { validators } from '../../utils/validators';
+import { canUserExecuteLimitedActions, containsUrlOrDomain } from '../abuse';
 import { WorkspaceService } from '../service';
 import {
   InvitationType,
@@ -62,6 +66,8 @@ import {
  */
 @Resolver(() => WorkspaceType)
 export class WorkspaceMemberResolver {
+  private readonly logger = new Logger(WorkspaceMemberResolver.name);
+
   constructor(
     private readonly cache: Cache,
     private readonly event: EventBus,
@@ -71,8 +77,42 @@ export class WorkspaceMemberResolver {
     private readonly mutex: RequestMutex,
     private readonly policy: WorkspacePolicyService,
     private readonly workspaceService: WorkspaceService,
-    private readonly quota: QuotaService
+    private readonly quota: QuotaService,
+    private readonly config: Config
   ) {}
+
+  private async assertCanInviteOrShare(
+    userId: string,
+    context: {
+      workspaceId: string;
+      action: 'inviteMembers' | 'createInviteLink';
+    }
+  ) {
+    const user = await this.models.user.get(userId);
+    const newAccountAgeMs = this.config.auth.newAccountShareActionDelay * 1000;
+    if (!user || !canUserExecuteLimitedActions(user, newAccountAgeMs)) {
+      this.logger.warn('Share action blocked for new account', {
+        userId,
+        email: user?.email,
+        createdAt: user?.createdAt,
+        accountAgeMs: user ? Date.now() - user.createdAt.getTime() : null,
+        minimumAccountAgeMs: newAccountAgeMs,
+        ...context,
+      });
+      throw new ActionForbidden(
+        'This feature is temporarily unavailable for you.'
+      );
+    }
+  }
+
+  private async assertWorkspaceNameCanInvite(workspaceId: string) {
+    const workspace = await this.workspaceService.getWorkspaceInfo(workspaceId);
+    if (containsUrlOrDomain(workspace.name)) {
+      throw new ActionForbidden(
+        'Workspace names containing links or domains cannot be used to invite members.'
+      );
+    }
+  }
 
   @ResolveField(() => UserType, {
     description: 'Owner of workspace',
@@ -116,11 +156,11 @@ export class WorkspaceMemberResolver {
         first: take ?? 8,
       });
 
-      return list.map(({ id, status, type, user }) => ({
+      return list.map(({ status, type, user }) => ({
         ...user,
         permission: Number(type),
         role: Number(type),
-        inviteId: id,
+        inviteId: user?.id ?? '',
         status,
       }));
     } else {
@@ -129,11 +169,11 @@ export class WorkspaceMemberResolver {
         first: take ?? 8,
       });
 
-      return list.map(({ id, status, type, user }) => ({
+      return list.map(({ status, type, user }) => ({
         ...user,
         permission: Number(type),
         role: Number(type),
-        inviteId: id,
+        inviteId: user?.id ?? '',
         status,
       }));
     }
@@ -149,6 +189,11 @@ export class WorkspaceMemberResolver {
       .user(me.id)
       .workspace(workspaceId)
       .assert('Workspace.Users.Manage');
+    await this.assertCanInviteOrShare(me.id, {
+      workspaceId,
+      action: 'inviteMembers',
+    });
+    await this.assertWorkspaceNameCanInvite(workspaceId);
 
     if (emails.length > 512) {
       throw new TooManyRequest();
@@ -198,10 +243,8 @@ export class WorkspaceMemberResolver {
               inviterId: me.id,
             }
           );
-          results.push({
-            email,
-            inviteId: role.id,
-          });
+          await this.allocateAvailableTeamSeats(workspaceId, quota.memberLimit);
+          results.push({ email, inviteId: role.id });
         } else {
           const needMoreSeat = quota.memberCount + idx + 1 > quota.memberLimit;
           if (needMoreSeat) {
@@ -280,6 +323,11 @@ export class WorkspaceMemberResolver {
       .user(user.id)
       .workspace(workspaceId)
       .assert('Workspace.Users.Manage');
+    await this.assertCanInviteOrShare(user.id, {
+      workspaceId,
+      action: 'createInviteLink',
+    });
+    await this.assertWorkspaceNameCanInvite(workspaceId);
 
     const cacheWorkspaceId = `workspace:inviteLink:${workspaceId}`;
     const invite = await this.cache.get<{ inviteId: string }>(cacheWorkspaceId);
@@ -354,6 +402,7 @@ export class WorkspaceMemberResolver {
               inviterId: me.id,
             }
           );
+          await this.allocateAvailableTeamSeats(workspaceId, quota.memberLimit);
         } else {
           if (quota.memberCount >= quota.memberLimit) {
             throw new NoMoreSeat({ spaceId: workspaceId });
@@ -666,5 +715,10 @@ export class WorkspaceMemberResolver {
     if (state.isReadonly) {
       throw new SpaceAccessDenied({ spaceId: workspaceId });
     }
+  }
+
+  private async allocateAvailableTeamSeats(workspaceId: string, limit: number) {
+    if (limit <= 0) return;
+    await this.workspaceService.allocateSeats(workspaceId, limit);
   }
 }

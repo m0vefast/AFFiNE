@@ -213,8 +213,14 @@ export interface AdminWorkspaceMember {
   email: Scalars['String']['output'];
   id: Scalars['String']['output'];
   name: Scalars['String']['output'];
-  role: Permission;
+  role: AdminWorkspaceMemberRole;
   status: WorkspaceMemberStatus;
+}
+
+export enum AdminWorkspaceMemberRole {
+  Admin = 'Admin',
+  Collaborator = 'Collaborator',
+  Owner = 'Owner',
 }
 
 export interface AdminWorkspaceSharedLink {
@@ -1165,6 +1171,7 @@ export type ErrorDataUnion =
   | SubscriptionPlanNotFoundDataType
   | UnknownOauthProviderDataType
   | UnsupportedClientVersionDataType
+  | UnsupportedServerVersionDataType
   | UnsupportedSubscriptionPlanDataType
   | ValidationErrorDataType
   | VersionRejectedDataType
@@ -1306,6 +1313,7 @@ export enum ErrorNames {
   UNKNOWN_OAUTH_PROVIDER = 'UNKNOWN_OAUTH_PROVIDER',
   UNSPLASH_IS_NOT_CONFIGURED = 'UNSPLASH_IS_NOT_CONFIGURED',
   UNSUPPORTED_CLIENT_VERSION = 'UNSUPPORTED_CLIENT_VERSION',
+  UNSUPPORTED_SERVER_VERSION = 'UNSUPPORTED_SERVER_VERSION',
   UNSUPPORTED_SUBSCRIPTION_PLAN = 'UNSUPPORTED_SUBSCRIPTION_PLAN',
   USER_AVATAR_NOT_FOUND = 'USER_AVATAR_NOT_FOUND',
   USER_NOT_FOUND = 'USER_NOT_FOUND',
@@ -1338,9 +1346,7 @@ export interface ExpectToUpdateDocUserRoleDataType {
 }
 
 export enum FeatureType {
-  AIEarlyAccess = 'AIEarlyAccess',
   Admin = 'Admin',
-  EarlyAccess = 'EarlyAccess',
   FreePlan = 'FreePlan',
   LifetimeProPlan = 'LifetimeProPlan',
   ProPlan = 'ProPlan',
@@ -1564,11 +1570,6 @@ export interface InviteResult {
   error: Maybe<Scalars['JSONObject']['output']>;
   /** Invite id, null if invite record create failed */
   inviteId: Maybe<Scalars['String']['output']>;
-  /**
-   * Invite email sent success
-   * @deprecated Notification will be sent asynchronously
-   */
-  sentSuccess: Scalars['Boolean']['output'];
 }
 
 export interface InviteUserType {
@@ -1617,8 +1618,6 @@ export interface InvoiceType {
   amount: Scalars['Int']['output'];
   createdAt: Scalars['DateTime']['output'];
   currency: Scalars['String']['output'];
-  /** @deprecated removed */
-  id: Maybe<Scalars['String']['output']>;
   lastPaymentError: Maybe<Scalars['String']['output']>;
   link: Maybe<Scalars['String']['output']>;
   /** @deprecated removed */
@@ -2273,7 +2272,6 @@ export interface MutationRevokeUserAccessTokenArgs {
 
 export interface MutationSendChangeEmailArgs {
   callbackUrl: Scalars['String']['input'];
-  email?: InputMaybe<Scalars['String']['input']>;
 }
 
 export interface MutationSendChangePasswordEmailArgs {
@@ -3124,7 +3122,6 @@ export interface SubscriptionType {
 }
 
 export enum SubscriptionVariant {
-  EA = 'EA',
   Onetime = 'Onetime',
 }
 
@@ -3236,6 +3233,11 @@ export interface UnknownOauthProviderDataType {
 export interface UnsupportedClientVersionDataType {
   __typename?: 'UnsupportedClientVersionDataType';
   clientVersion: Scalars['String']['output'];
+  requiredVersion: Scalars['String']['output'];
+}
+
+export interface UnsupportedServerVersionDataType {
+  __typename?: 'UnsupportedServerVersionDataType';
   requiredVersion: Scalars['String']['output'];
 }
 
@@ -3396,11 +3398,6 @@ export interface UserType {
   invoices: Array<InvoiceType>;
   /** User name */
   name: Scalars['String']['output'];
-  /**
-   * Get user notification count
-   * @deprecated Use realtime subscription "notification.count.changed" instead.
-   */
-  notificationCount: Scalars['Int']['output'];
   /** Get current user notifications */
   notifications: PaginatedNotificationObjectType;
   quota: UserQuotaType;
@@ -3409,7 +3406,7 @@ export interface UserType {
   /** Get user settings */
   settings: UserSettingsType;
   subscriptions: Array<SubscriptionType>;
-  /** @deprecated use [/api/auth/sign-in?native=true] instead */
+  /** @deprecated use native session exchange instead */
   token: TokenType;
 }
 
@@ -3597,8 +3594,6 @@ export interface WorkspaceQuotaType {
   name: Scalars['String']['output'];
   overcapacityMemberCount: Scalars['Int']['output'];
   storageQuota: Scalars['SafeInt']['output'];
-  /** @deprecated use `usedStorageQuota` instead */
-  usedSize: Scalars['SafeInt']['output'];
   usedStorageQuota: Scalars['SafeInt']['output'];
 }
 
@@ -4024,7 +4019,7 @@ export type AdminWorkspaceQuery = {
       name: string;
       email: string;
       avatarUrl: string | null;
-      role: Permission;
+      role: AdminWorkspaceMemberRole;
       status: WorkspaceMemberStatus;
     }>;
   } | null;
@@ -4175,6 +4170,7 @@ export type ListUsersQuery = {
 };
 
 export type SendTestEmailMutationVariables = Exact<{
+  name: Scalars['String']['input'];
   host: Scalars['String']['input'];
   port: Scalars['Int']['input'];
   sender: Scalars['String']['input'];
@@ -6873,7 +6869,6 @@ export type InvoicesQuery = {
     invoiceCount: number;
     invoices: Array<{
       __typename?: 'InvoiceType';
-      id: string | null;
       status: InvoiceStatus;
       currency: string;
       amount: number;
@@ -7597,7 +7592,6 @@ export type InviteByEmailsMutation = {
     __typename?: 'InviteResult';
     email: string;
     inviteId: string | null;
-    sentSuccess: boolean;
   }>;
 };
 
@@ -7647,7 +7641,6 @@ export type WorkspaceInvoicesQuery = {
     invoiceCount: number;
     invoices: Array<{
       __typename?: 'InvoiceType';
-      id: string | null;
       status: InvoiceStatus;
       currency: string;
       amount: number;
