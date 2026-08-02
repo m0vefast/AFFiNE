@@ -92,6 +92,7 @@ export class ImportService extends Service {
   async importObsidianVault(files: File[], context?: ImportRunContext) {
     const collection = this.workspaceService.workspace.docCollection;
     const commitService = this.createCommitService({
+      organize: true,
       explorerIcon: true,
     });
     if (!BUILD_CONFIG.isElectron) {
@@ -134,6 +135,16 @@ export class ImportService extends Service {
       extensions: getStoreManager().config.init().value.get('store'),
     });
     return commitService.commitBatch(batch);
+  }
+
+  async importOneNote(file: File, context?: ImportRunContext) {
+    if (!BUILD_CONFIG.isElectron) {
+      throw new Error('OneNote import is only available in the desktop app.');
+    }
+    const commitService = this.createCommitService({
+      organize: true,
+    });
+    return commitNativeImport('oneNote', file, commitService, context);
   }
 
   private createCommitService(options: {

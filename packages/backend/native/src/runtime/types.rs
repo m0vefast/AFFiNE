@@ -15,6 +15,107 @@ pub struct BackendRuntimeHealth {
 }
 
 #[napi_derive::napi(object)]
+pub struct RuntimeQuotaTargetDomainInput {
+  pub domain: String,
+  pub count: i32,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeQuotaSourceInput {
+  pub trusted: bool,
+  pub ip: Option<String>,
+  pub country: Option<String>,
+  pub asn: Option<u32>,
+  pub ray_id: Option<String>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeWorkspaceInviteQuotaInput {
+  pub actor_user_id: String,
+  pub workspace_id: String,
+  pub request_id: Option<String>,
+  pub target_count: i32,
+  pub target_domains: Vec<RuntimeQuotaTargetDomainInput>,
+  pub source: Option<RuntimeQuotaSourceInput>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeWorkspaceInviteQuotaUsage {
+  pub target_count: i32,
+  pub target_domains: Vec<RuntimeQuotaTargetDomainInput>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeInviteAbuseActionRequired {
+  pub action: String,
+  pub subject_key: String,
+  pub evidence_id: String,
+  pub action_id: String,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeInviteAbuseClaimedAction {
+  pub action: String,
+  pub subject_key: String,
+  pub evidence_id: String,
+  pub action_id: String,
+  pub actor_user_id: String,
+  pub workspace_id: String,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeWorkspaceInviteQuotaDecision {
+  pub allowed: bool,
+  pub reservation_id: Option<String>,
+  pub retry_after_seconds: Option<i32>,
+  pub reason: Option<String>,
+  pub scope_key: Option<String>,
+  pub window_seconds: Option<i32>,
+  pub limit: Option<i32>,
+  pub current: Option<i32>,
+  pub requested: Option<i32>,
+  pub action_required: Option<RuntimeInviteAbuseActionRequired>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeMailDeliveryQuotaMetadataInput {
+  pub actor_user_id: Option<String>,
+  pub workspace_id: Option<String>,
+  pub notification_id: Option<String>,
+  pub abuse_subject_key: Option<String>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeMailDeliveryQuotaRecipientInput {
+  pub email: String,
+  pub domain: String,
+  pub user_id: Option<String>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeMailDeliveryQuotaInput {
+  pub request_id: Option<String>,
+  pub mail_name: String,
+  pub recipient: RuntimeMailDeliveryQuotaRecipientInput,
+  pub metadata: RuntimeMailDeliveryQuotaMetadataInput,
+  pub source: Option<RuntimeQuotaSourceInput>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeMailDeliveryQuotaDecision {
+  pub allowed: bool,
+  pub reservation_id: Option<String>,
+  pub mail_class: String,
+  pub retry_after_seconds: Option<i32>,
+  pub reason: Option<String>,
+  pub scope_key: Option<String>,
+  pub window_seconds: Option<i32>,
+  pub limit: Option<i32>,
+  pub current: Option<i32>,
+  pub requested: Option<i32>,
+}
+
+#[napi_derive::napi(object)]
 pub struct CoordinationLeaseGrant {
   pub key: String,
   pub owner: String,
@@ -140,6 +241,41 @@ pub struct RuntimeDocBlobRefsResult {
   pub refs_deleted: i64,
   pub failed_docs: i64,
   pub next_cursor: Option<String>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeDocumentCleanupReconcileResult {
+  pub scanned_docs: i64,
+  pub marked: i64,
+  pub reset: i64,
+  pub recovered: i64,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeDocumentCleanupEffect {
+  pub workspace_id: String,
+  pub doc_id: String,
+  pub cleanup_version: String,
+  pub comment_objects_done: bool,
+  pub search_done: bool,
+  pub copilot_done: bool,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeDocumentCleanupExecuteResult {
+  pub scanned_candidates: i64,
+  pub serialization_retries: i64,
+  pub executed: i64,
+  pub recovered: i64,
+  pub reset: i64,
+  pub failed: i64,
+  pub deleted_rows: i64,
+  pub effects: Vec<RuntimeDocumentCleanupEffect>,
+}
+
+#[napi_derive::napi(object)]
+pub struct RuntimeDocumentCleanupAckResult {
+  pub completed: bool,
 }
 
 #[napi_derive::napi(object)]

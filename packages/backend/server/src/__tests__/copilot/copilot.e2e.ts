@@ -588,7 +588,7 @@ test('should be able to chat with api', async t => {
     t.is(
       array2sse(sse2array(ret3).filter(e => e.event !== 'event')),
       textToEventStream(
-        ['https://example.com/gpt-image-1.jpg'],
+        ['https://example.com/gpt-image-2.jpg'],
         messageId,
         'attachment'
       ),
@@ -717,14 +717,13 @@ test('should map action stream preparation errors to SSE error events', async t 
 });
 
 test('should be able to chat with special image model', async t => {
-  const { app, prompt, storage } = t.context;
+  const { app, storage } = t.context;
 
   Sinon.stub(storage, 'handleRemoteLink').resolvesArg(2);
 
   const { id } = await createWorkspace(app);
 
   const testWithModel = async (promptName: string, finalPrompt: string) => {
-    const model = (await prompt.get(promptName))?.model;
     const sessionId = await createCopilotSession(
       app,
       id,
@@ -739,7 +738,7 @@ test('should be able to chat with special image model', async t => {
       ret3,
       textToEventStream(
         [
-          `https://example.com/${model}.jpg`,
+          'https://example.com/gpt-image-2.jpg',
           `https://example.com/generated/${encodeURIComponent(finalPrompt)}.jpg`,
         ],
         messageId,
@@ -1587,15 +1586,6 @@ test('should be able to manage context', async t => {
       buffer
     );
 
-    const { files } =
-      (await listContextDocAndFiles(app, workspaceId, sessionId, contextId)) ||
-      {};
-    t.snapshot(
-      cleanObject(files, ['id', 'error', 'createdAt']),
-      'should list context files'
-    );
-
-    // wait for processing
     await waitForStatus(
       async () =>
         (await listContextDocAndFiles(app, workspaceId, sessionId, contextId))
@@ -1604,6 +1594,18 @@ test('should be able to manage context', async t => {
       'context file embedding',
       60
     );
+
+    const { files } =
+      (await listContextDocAndFiles(app, workspaceId, sessionId, contextId)) ||
+      {};
+    t.deepEqual(cleanObject(files, ['id', 'error', 'createdAt']), [
+      {
+        blobId: 'Ip3vuwzubwJnOlzeKQ0Gc-daDcMc7EOYnIqypOyn4bs',
+        chunkSize: 1,
+        name: 'sample.pdf',
+        status: 'finished',
+      },
+    ]);
 
     const result = await waitForMatches(
       () => matchFiles(app, contextId, 'test', 1),
@@ -1641,15 +1643,6 @@ test('should be able to manage context', async t => {
 
     await addContextDoc(app, contextId, docId);
 
-    const { docs } =
-      (await listContextDocAndFiles(app, workspaceId, sessionId, contextId)) ||
-      {};
-    t.snapshot(
-      cleanObject(docs, ['error', 'createdAt']),
-      'should list context docs'
-    );
-
-    // wait for processing
     await waitForStatus(
       async () =>
         (await listContextDocAndFiles(app, workspaceId, sessionId, contextId))
@@ -1658,6 +1651,16 @@ test('should be able to manage context', async t => {
       'context doc embedding',
       60
     );
+
+    const { docs } =
+      (await listContextDocAndFiles(app, workspaceId, sessionId, contextId)) ||
+      {};
+    t.deepEqual(cleanObject(docs, ['error', 'createdAt']), [
+      {
+        id: docId,
+        status: 'finished',
+      },
+    ]);
 
     const result = await waitForMatches(
       () => matchWorkspaceDocs(app, contextId, 'test', 1),
@@ -1911,7 +1914,7 @@ test('should be able to transcript', async t => {
     const route = input.input?.preparedRoutes?.transcribe?.[0] ?? {};
     const result = buildTranscriptActionResult(
       route,
-      'gemini-2.5-flash',
+      'gemini-3.5-flash-lite',
       input.input ?? {}
     );
     const actionVersion = input.recipeVersion ?? 'v1';
