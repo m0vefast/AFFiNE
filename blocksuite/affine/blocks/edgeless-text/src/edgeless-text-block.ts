@@ -28,6 +28,25 @@ import { css, html } from 'lit';
 import { query, state } from 'lit/decorators.js';
 import { type StyleInfo, styleMap } from 'lit/directives/style-map.js';
 
+/**
+ * Smallest auto-size change worth writing back to the document, in model units.
+ *
+ * `getBoundingClientRect()` is not bit-reproducible across two renders of
+ * identical content, and `store.updateBlock` writes straight through to Yjs with
+ * no equality check anywhere on the path (`flat-native-y` proxy → `yMap.set`).
+ * Unguarded, that turns a pure render into a CRDT mutation: Glyph measured ~1e-4
+ * of height drift per open on a canvas nobody had touched, which its autosave
+ * then dutifully persisted — the file grew on every open, forever.
+ *
+ * At the editor's maximum zoom one screen pixel is still 0.1 model units, so
+ * this threshold sits two orders of magnitude below the finest gesture a user
+ * can make: no real resize is swallowed, all measurement noise is.
+ *
+ * Mirrored by Glyph's save gate (`web-canvas/src/content-fingerprint.ts`), which
+ * quantizes at the same 0.01 — keep the two in step.
+ */
+const AUTO_SIZE_EPSILON = 0.01;
+
 export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBlockModel> {
   static override styles = css`
     .edgeless-text-block-container[data-max-width='false'] .inline-editor span {
@@ -76,7 +95,9 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
   private _updateH() {
     const bound = Bound.deserialize(this.model.xywh);
     const rect = this._textContainer.getBoundingClientRect();
-    bound.h = rect.height / this.gfx.viewport.zoom;
+    const h = rect.height / this.gfx.viewport.zoom;
+    if (Math.abs(h - bound.h) < AUTO_SIZE_EPSILON) return;
+    bound.h = h;
 
     this.store.updateBlock(this.model, {
       xywh: bound.serialize(),
@@ -86,10 +107,12 @@ export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBl
   private _updateW() {
     const bound = Bound.deserialize(this.model.xywh);
     const rect = this._textContainer.getBoundingClientRect();
-    bound.w = Math.max(
+    const w = Math.max(
       rect.width / this.gfx.viewport.zoom,
       EDGELESS_TEXT_BLOCK_MIN_WIDTH * this.gfx.viewport.zoom
     );
+    if (Math.abs(w - bound.w) < AUTO_SIZE_EPSILON) return;
+    bound.w = w;
 
     this.store.updateBlock(this.model, {
       xywh: bound.serialize(),
