@@ -15,7 +15,7 @@ import {
   handleNativeRangeAtPoint,
   matchModels,
 } from '@blocksuite/affine-shared/utils';
-import { Bound, clamp } from '@blocksuite/global/gfx';
+import { AUTO_SIZE_EPSILON, Bound, clamp } from '@blocksuite/global/gfx';
 import type { BlockComponent } from '@blocksuite/std';
 import {
   BlockSelection,
@@ -27,25 +27,6 @@ import { computed } from '@preact/signals-core';
 import { css, html } from 'lit';
 import { query, state } from 'lit/decorators.js';
 import { type StyleInfo, styleMap } from 'lit/directives/style-map.js';
-
-/**
- * Smallest auto-size change worth writing back to the document, in model units.
- *
- * `getBoundingClientRect()` is not bit-reproducible across two renders of
- * identical content, and `store.updateBlock` writes straight through to Yjs with
- * no equality check anywhere on the path (`flat-native-y` proxy → `yMap.set`).
- * Unguarded, that turns a pure render into a CRDT mutation: Glyph measured ~1e-4
- * of height drift per open on a canvas nobody had touched, which its autosave
- * then dutifully persisted — the file grew on every open, forever.
- *
- * At the editor's maximum zoom one screen pixel is still 0.1 model units, so
- * this threshold sits two orders of magnitude below the finest gesture a user
- * can make: no real resize is swallowed, all measurement noise is.
- *
- * Mirrored by Glyph's save gate (`web-canvas/src/content-fingerprint.ts`), which
- * quantizes at the same 0.01 — keep the two in step.
- */
-const AUTO_SIZE_EPSILON = 0.01;
 
 export class EdgelessTextBlockComponent extends GfxBlockComponent<EdgelessTextBlockModel> {
   static override styles = css`

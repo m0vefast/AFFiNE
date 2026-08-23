@@ -1,5 +1,5 @@
 import type { NoteBlockModel } from '@blocksuite/affine-model';
-import { almostEqual, Bound } from '@blocksuite/global/gfx';
+import { almostEqual, AUTO_SIZE_EPSILON, Bound } from '@blocksuite/global/gfx';
 import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
 import { type EditorHost, ShadowlessElement } from '@blocksuite/std';
 import { html } from 'lit';
@@ -21,7 +21,11 @@ export class EdgelessNoteMask extends SignalWatcher(
           const scale = this.model.props.edgeless.scale ?? 1;
           const height = entry.contentRect.height * scale;
 
-          if (!height || almostEqual(bound.h, height)) {
+          // `almostEqual`'s 1e-4 default sits 293x under the measured
+          // cross-device re-measurement noise, so an untouched note wrote its
+          // own height back on every open. `stash`/`pop` does not make that
+          // free: `pop` assigns through the proxy, i.e. one Yjs op.
+          if (!height || almostEqual(bound.h, height, AUTO_SIZE_EPSILON)) {
             return;
           }
 

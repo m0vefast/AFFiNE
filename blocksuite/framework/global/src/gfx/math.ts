@@ -308,6 +308,48 @@ export function almostEqual(a: number, b: number, epsilon = 0.0001) {
   return Math.abs(a - b) < epsilon;
 }
 
+/**
+ * Smallest auto-measured size change worth writing back to the document, in
+ * model units.
+ *
+ * Several blocks size themselves to their rendered content — edgeless text and
+ * note both re-measure in a `ResizeObserver` and write the result into the
+ * model, which goes straight through to Yjs with no equality check anywhere on
+ * the path (`flat-native-y` proxy → `yMap.set`). `getBoundingClientRect()` is
+ * not bit-reproducible between two renders of identical content, so without a
+ * floor a pure render becomes a CRDT mutation: merely OPENING a document
+ * appends ops forever.
+ *
+ * The floor must be derived from the noise, from BELOW. Bounding it only from
+ * above — "one screen pixel at max zoom is 0.1 model units, so anything under
+ * that is safe" — is what produced the two thresholds this constant replaces,
+ * and both sat under the real noise. Neither auto-size path takes a pointer
+ * gesture at all, so pointer precision was never the binding constraint.
+ *
+ * Measured over 31 versions of one real, unedited canvas:
+ *
+ *   same-device drift between opens      <= 1.57e-4
+ *   CROSS-device drift between opens     <= 2.93e-2   (187x larger)
+ *   one paragraph in the shortest block     44.8
+ *
+ * The cross-device row is the one that matters and the one both previous
+ * thresholds missed: `almostEqual`'s 1e-4 default sits 293x under it, and
+ * edgeless-text's old 0.01 sits 3x under it. Two machines re-measuring the same
+ * untouched text each disagreed past its own tolerance and wrote its own answer
+ * back, so the file round-tripped between them forever.
+ *
+ * 0.5 clears the measured cross-device floor by ~17x and stays ~90x below the
+ * smallest change a reader could notice. At zoom 1 it is half a CSS pixel.
+ *
+ * Mirrored by Glyph's save gate (`web-canvas/src/content-fingerprint.ts`),
+ * whose `HEIGHT_TOLERANCE` is the same 0.5 — keep the two in step. That gate
+ * applies it to the height of `affine:edgeless-text` and an uncollapsed
+ * `affine:note` and to nothing else, because those are exactly the flavours
+ * whose writer consults this constant; a third consumer added here must be
+ * added there too, or the gate will treat its measurement noise as an edit.
+ */
+export const AUTO_SIZE_EPSILON = 0.5;
+
 export function isVecZero(v: IVec) {
   return v.every(n => isZero(n));
 }
