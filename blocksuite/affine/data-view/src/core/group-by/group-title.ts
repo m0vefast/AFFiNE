@@ -96,14 +96,16 @@ const GroupTitleMobile = (
       ${icon} ${renderUniLit(groupData.view, props)} ${columnName}
       ${GroupHeaderCount(groupData)}
     </div>
-    ${ops.readonly
-      ? nothing
-      : html` <div class="group-header-ops">
-          ${/* GLYPH PATCH: removed group-title add row button */ nothing}
-          <div @click="${ops.clickOps}" class="group-header-op">
-            ${MoreHorizontalIcon()}
-          </div>
-        </div>`}
+    ${
+      ops.readonly
+        ? nothing
+        : html` <div class="group-header-ops">
+            ${/* GLYPH PATCH: removed group-title add row button */ nothing}
+            <div @click="${ops.clickOps}" class="group-header-op">
+              ${MoreHorizontalIcon()}
+            </div>
+          </div>`
+    }
   `;
 };
 
@@ -209,13 +211,15 @@ export const GroupTitle = (
       ${icon} ${renderUniLit(groupData.view, props)} ${columnName}
       ${GroupHeaderCount(groupData)}
     </div>
-    ${ops.readonly
-      ? nothing
-      : html` <div class="group-header-ops">
-          ${/* GLYPH PATCH: removed group-title add row button */ nothing}
-          <div @click="${ops.clickOps}" class="group-header-op">
-            ${MoreHorizontalIcon()}
-          </div>
-        </div>`}
+    ${
+      ops.readonly
+        ? nothing
+        : html` <div class="group-header-ops">
+            ${/* GLYPH PATCH: removed group-title add row button */ nothing}
+            <div @click="${ops.clickOps}" class="group-header-op">
+              ${MoreHorizontalIcon()}
+            </div>
+          </div>`
+    }
   `;
 };

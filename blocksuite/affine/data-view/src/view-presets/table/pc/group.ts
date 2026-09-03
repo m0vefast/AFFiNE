@@ -200,9 +200,9 @@ export class TableGroup extends SignalWatcher(
           class=${`group-toggle-btn ${this.collapsed$.value ? '' : 'expanded'}`}
           role="button"
           aria-expanded=${this.collapsed$.value ? 'false' : 'true'}
-          aria-label=${this.collapsed$.value
-            ? 'Expand group'
-            : 'Collapse group'}
+          aria-label=${
+            this.collapsed$.value ? 'Expand group' : 'Collapse group'
+          }
           tabindex="0"
           @click=${this._toggleCollapse}
           @keydown=${(e: KeyboardEvent) => {
@@ -212,9 +212,11 @@ export class TableGroup extends SignalWatcher(
             }
           }}
         >
-          ${this.collapsed$.value
-            ? ToggleRightIcon({ width: '16px', height: '16px' })
-            : ToggleDownIcon({ width: '16px', height: '16px' })}
+          ${
+            this.collapsed$.value
+              ? ToggleRightIcon({ width: '16px', height: '16px' })
+              : ToggleDownIcon({ width: '16px', height: '16px' })
+          }
         </div>
 
         ${GroupTitle(this.group, {

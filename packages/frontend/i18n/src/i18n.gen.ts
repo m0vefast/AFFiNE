@@ -1,5 +1,5 @@
 // @ts-nocheck
-/* eslint-disable */
+/* oxlint-disable */
 import { createElement, useMemo, type ComponentType, type JSX } from "react";
 import { useTranslation, Trans, type TransProps } from "react-i18next";
 type TypedTransProps<Value, Components, Context extends string | undefined = undefined> = Omit<TransProps<string, never, never, Context>, "values" | "ns" | "i18nKey"> & ({} extends Value ? {} : {
@@ -877,6 +877,175 @@ export function useAFFiNEI18N(): {
     ["com.affine.ai.chat-panel.embedding-progress"](options: Readonly<{
         done: string;
         total: string;
+    }>): string;
+    /**
+      * `Local workspaces don't support attachments or references.`
+      */
+    ["com.affine.ai.chat-panel.local-workspace-context-unavailable"](): string;
+    /**
+      * `Reading canvas`
+      */
+    ["com.affine.ai.chat-panel.tool.canvas.reading"](): string;
+    /**
+      * `Read canvas of "{{title}}"`
+      */
+    ["com.affine.ai.chat-panel.tool.canvas.read"](options: {
+        readonly title: string;
+    }): string;
+    /**
+      * `Read canvas`
+      */
+    ["com.affine.ai.chat-panel.tool.canvas.read-untitled"](): string;
+    /**
+      * `Canvas read failed`
+      */
+    ["com.affine.ai.chat-panel.tool.canvas.failed"](): string;
+    /**
+      * `Canvas content`
+      */
+    ["com.affine.ai.chat-panel.tool.canvas.content"](): string;
+    /**
+      * `Current document`
+      */
+    ["com.affine.ai.chat-panel.tool.live.current-document"](): string;
+    /**
+      * `Checking editor state`
+      */
+    ["com.affine.ai.chat-panel.tool.live.state-checking"](): string;
+    /**
+      * `Checked editor state`
+      */
+    ["com.affine.ai.chat-panel.tool.live.state-checked"](): string;
+    /**
+      * `Reading selection`
+      */
+    ["com.affine.ai.chat-panel.tool.live.selection-reading"](): string;
+    /**
+      * `Read selection`
+      */
+    ["com.affine.ai.chat-panel.tool.live.selection-read"](): string;
+    /**
+      * `Reading editor content`
+      */
+    ["com.affine.ai.chat-panel.tool.live.content-reading"](): string;
+    /**
+      * `Read editor content`
+      */
+    ["com.affine.ai.chat-panel.tool.live.content-read"](): string;
+    /**
+      * `Reading outline of "{{title}}"`
+      */
+    ["com.affine.ai.chat-panel.tool.live.outline-reading"](options: {
+        readonly title: string;
+    }): string;
+    /**
+      * `Read outline of "{{title}}"`
+      */
+    ["com.affine.ai.chat-panel.tool.live.outline-read"](options: {
+        readonly title: string;
+    }): string;
+    /**
+      * `Reading canvas of "{{title}}"`
+      */
+    ["com.affine.ai.chat-panel.tool.live.canvas-reading"](options: {
+        readonly title: string;
+    }): string;
+    /**
+      * `Read canvas of "{{title}}"`
+      */
+    ["com.affine.ai.chat-panel.tool.live.canvas-read"](options: {
+        readonly title: string;
+    }): string;
+    /**
+      * `This view is not available in the current editor mode`
+      */
+    ["com.affine.ai.chat-panel.tool.live.view-unavailable"](): string;
+    /**
+      * `Live editor read failed`
+      */
+    ["com.affine.ai.chat-panel.tool.live.failed"](): string;
+    /**
+      * `{{mode}} mode`
+      */
+    ["com.affine.ai.chat-panel.tool.live.mode"](options: {
+        readonly mode: string;
+    }): string;
+    /**
+      * `{{count}} blocks`
+      */
+    ["com.affine.ai.chat-panel.tool.live.blocks"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `{{count}} elements`
+      */
+    ["com.affine.ai.chat-panel.tool.live.elements"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Document`
+      */
+    ["com.affine.ai.chat-panel.scope.document"](): string;
+    /**
+      * `Tag`
+      */
+    ["com.affine.ai.chat-panel.scope.tag"](): string;
+    /**
+      * `Collection`
+      */
+    ["com.affine.ai.chat-panel.scope.collection"](): string;
+    /**
+      * `Favorites`
+      */
+    ["com.affine.ai.chat-panel.scope.favorite"](): string;
+    /**
+      * `Attachment`
+      */
+    ["com.affine.ai.chat-panel.scope.artifact"](): string;
+    /**
+      * `{{count}} sources`
+      */
+    ["com.affine.ai.chat-panel.scope.sources"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Your selected sources are still processing. Try again shortly.`
+      */
+    ["com.affine.ai.error.selectedSourcesProcessing"](): string;
+    /**
+      * `Some selected sources could not be processed. Try again; if the problem continues, remove them and send a new message.`
+      */
+    ["com.affine.ai.error.selectedSourcesFailed"](): string;
+    /**
+      * `One or more selected sources are unavailable. Check the sources or workspace AI indexing settings, then retry.`
+      */
+    ["com.affine.ai.error.selectedSourcesUnavailable"](): string;
+    /**
+      * `Too many sources or too much content was selected. Select fewer sources and send a new message.`
+      */
+    ["com.affine.ai.error.selectedSourcesLimitExceeded"](): string;
+    /**
+      * `Retry`
+      */
+    ["com.affine.ai.error.retry"](): string;
+    /**
+      * `Working… · {{count}} actions`
+      */
+    ["com.affine.ai.chat-panel.tool-group.running"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Completed {{count}} actions`
+      */
+    ["com.affine.ai.chat-panel.tool-group.completed"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Completed {{count}} actions · {{failed}} failed`
+      */
+    ["com.affine.ai.chat-panel.tool-group.failed"](options: Readonly<{
+        count: string;
+        failed: string;
     }>): string;
     /**
       * `Delete this history?`
@@ -2617,11 +2786,15 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.journal.updated-today"](): string;
     /**
-      * `No Journal`
+      * `No journal for this day`
       */
     ["com.affine.journal.placeholder.title"](): string;
     /**
-      * `Create Daily Journal`
+      * `Create one to start writing.`
+      */
+    ["com.affine.journal.placeholder.description"](): string;
+    /**
+      * `Create journal`
       */
     ["com.affine.journal.placeholder.create"](): string;
     /**
@@ -2867,6 +3040,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.mobile.setting.about.title"](): string;
     /**
+      * `Log In / Sign Up`
+      */
+    ["com.affine.mobile.setting.account.sign-in"](): string;
+    /**
+      * `Account & Data`
+      */
+    ["com.affine.mobile.setting.account.title"](): string;
+    /**
       * `Font style`
       */
     ["com.affine.mobile.setting.appearance.font"](): string;
@@ -2883,6 +3064,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.mobile.setting.appearance.title"](): string;
     /**
+      * `Experimental features`
+      */
+    ["com.affine.mobile.setting.experimental.features"](): string;
+    /**
+      * `Experimental`
+      */
+    ["com.affine.mobile.setting.experimental.title"](): string;
+    /**
       * `Settings`
       */
     ["com.affine.mobile.setting.header-title"](): string;
@@ -2891,7 +3080,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.mobile.setting.others.github"](): string;
     /**
-      * `Discord Group`
+      * `Discord group`
       */
     ["com.affine.mobile.setting.others.discord"](): string;
     /**
@@ -2911,9 +3100,49 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.mobile.setting.others.website"](): string;
     /**
-      * `Delete my account`
+      * `Delete Account`
       */
     ["com.affine.mobile.setting.others.delete-account"](): string;
+    /**
+      * `Danger Zone`
+      */
+    ["com.affine.mobile.setting.danger-zone.title"](): string;
+    /**
+      * `Plans`
+      */
+    ["com.affine.mobile.setting.plans.title"](): string;
+    /**
+      * `Collaborate in Cloud or Self-Hosted.`
+      */
+    ["com.affine.mobile.setting.promo.description"](): string;
+    /**
+      * `AFFiNE for teams`
+      */
+    ["com.affine.mobile.setting.promo.title"](): string;
+    /**
+      * `More cloud storage and advanced features.`
+      */
+    ["com.affine.mobile.setting.subscription.description"](): string;
+    /**
+      * `AFFiNE Pro`
+      */
+    ["com.affine.mobile.setting.subscription.title"](): string;
+    /**
+      * `Invite a friend`
+      */
+    ["com.affine.mobile.setting.support.invite"](): string;
+    /**
+      * `Check out AFFiNE for notes, whiteboards, docs, and AI.`
+      */
+    ["com.affine.mobile.setting.support.invite-message"](): string;
+    /**
+      * `Rate AFFiNE`
+      */
+    ["com.affine.mobile.setting.support.rate"](): string;
+    /**
+      * `Support us`
+      */
+    ["com.affine.mobile.setting.support.title"](): string;
     /**
       * `Want to keep data local?`
       */
@@ -5074,6 +5303,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.setting.account.delete.confirm-title"](): string;
     /**
+      * `Confirm your email`
+      */
+    ["com.affine.setting.account.delete.email-confirm-title"](): string;
+    /**
       * `Please type your email to confirm`
       */
     ["com.affine.setting.account.delete.input-placeholder"](): string;
@@ -5925,10 +6158,6 @@ export function useAFFiNEI18N(): {
     /**
       * `AI BYOK (Beta)`
       */
-    ["com.affine.settings.workspace.byok.title-beta"](): string;
-    /**
-      * `AI BYOK`
-      */
     ["com.affine.settings.workspace.byok.title"](): string;
     /**
       * `Loading provider keys.`
@@ -5950,14 +6179,6 @@ export function useAFFiNEI18N(): {
       * `Upgrade this workspace to add provider keys and route AFFiNE AI through your own OpenAI, Anthropic, Gemini, or FAL account.`
       */
     ["com.affine.settings.workspace.byok.locked.description"](): string;
-    /**
-      * `AI plan stays available`
-      */
-    ["com.affine.settings.workspace.byok.notice.title"](): string;
-    /**
-      * `Local keys on this device are tried first. Workspace server keys follow, then AFFiNE AI plan routes when quota is available.`
-      */
-    ["com.affine.settings.workspace.byok.notice.description"](): string;
     /**
       * `Provider keys`
       */
@@ -5983,13 +6204,25 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.byok.storage.server"](): string;
     /**
-      * `Local (this device)`
+      * `Available to workspace members.`
       */
-    ["com.affine.settings.workspace.byok.storage.local-this-device"](): string;
+    ["com.affine.settings.workspace.byok.storage.server.description"](): string;
     /**
-      * `Local (Desktop only)`
+      * `Kept in this desktop device’s secure storage.`
       */
-    ["com.affine.settings.workspace.byok.storage.local-desktop-only"](): string;
+    ["com.affine.settings.workspace.byok.storage.local.description"](): string;
+    /**
+      * `Available in the AFFiNE desktop app.`
+      */
+    ["com.affine.settings.workspace.byok.storage.local.desktop-only"](): string;
+    /**
+      * `Secure local storage is not available on this device.`
+      */
+    ["com.affine.settings.workspace.byok.storage.local.unavailable"](): string;
+    /**
+      * `Testing sends this key to the workspace server for this request only; it is not stored there.`
+      */
+    ["com.affine.settings.workspace.byok.storage.local.test-disclosure"](): string;
     /**
       * `Disabled after failure`
       */
@@ -5998,10 +6231,6 @@ export function useAFFiNEI18N(): {
       * `Key verified`
       */
     ["com.affine.settings.workspace.byok.status.key-verified"](): string;
-    /**
-      * `Key test failed`
-      */
-    ["com.affine.settings.workspace.byok.status.key-test-failed"](): string;
     /**
       * `Text`
       */
@@ -6032,16 +6261,6 @@ export function useAFFiNEI18N(): {
     ["com.affine.settings.workspace.byok.row.activity.failed"](options: {
         readonly date: string;
     }): string;
-    /**
-      * `used {{date}}`
-      */
-    ["com.affine.settings.workspace.byok.row.activity.used"](options: {
-        readonly date: string;
-    }): string;
-    /**
-      * `used today`
-      */
-    ["com.affine.settings.workspace.byok.row.activity.used-today"](): string;
     /**
       * `not used yet`
       */
@@ -6113,17 +6332,69 @@ export function useAFFiNEI18N(): {
         readonly count: string;
     }): string;
     /**
-      * `Add provider key`
+      * `Connect AI provider`
       */
-    ["com.affine.settings.workspace.byok.modal.add-title"](): string;
+    ["com.affine.settings.workspace.byok.modal.connect-title"](): string;
     /**
-      * `Edit provider key`
+      * `Manage provider`
       */
-    ["com.affine.settings.workspace.byok.modal.edit-title"](): string;
+    ["com.affine.settings.workspace.byok.modal.manage-title"](): string;
     /**
-      * `Re-enter the API key and test it before saving changes.`
+      * `Choose where the key is stored, then select the models AFFiNE may use.`
       */
-    ["com.affine.settings.workspace.byok.modal.description"](): string;
+    ["com.affine.settings.workspace.byok.modal.connect-description"](): string;
+    /**
+      * `Add models`
+      */
+    ["com.affine.settings.workspace.byok.modal.add-model-title"](): string;
+    /**
+      * `Add custom model`
+      */
+    ["com.affine.settings.workspace.byok.modal.add-custom-model-title"](): string;
+    /**
+      * `Edit model`
+      */
+    ["com.affine.settings.workspace.byok.modal.edit-model-title"](): string;
+    /**
+      * `Choose one or more models this key may use.`
+      */
+    ["com.affine.settings.workspace.byok.modal.catalog-model-description"](): string;
+    /**
+      * `Enter the endpoint model ID and choose its uses.`
+      */
+    ["com.affine.settings.workspace.byok.modal.custom-model-description"](): string;
+    /**
+      * `Connection`
+      */
+    ["com.affine.settings.workspace.byok.section.connection"](): string;
+    /**
+      * `Models`
+      */
+    ["com.affine.settings.workspace.byok.section.models"](): string;
+    /**
+      * `Advanced details`
+      */
+    ["com.affine.settings.workspace.byok.section.advanced"](): string;
+    /**
+      * `Models this key may use.`
+      */
+    ["com.affine.settings.workspace.byok.models.description.selected"](): string;
+    /**
+      * `Among compatible models, enabled models are tried from top to bottom.`
+      */
+    ["com.affine.settings.workspace.byok.models.description.order"](): string;
+    /**
+      * `No models added yet.`
+      */
+    ["com.affine.settings.workspace.byok.models.empty"](): string;
+    /**
+      * `All available models have been added.`
+      */
+    ["com.affine.settings.workspace.byok.models.all-added"](): string;
+    /**
+      * `No matching models.`
+      */
+    ["com.affine.settings.workspace.byok.models.no-search-results"](): string;
     /**
       * `Provider`
       */
@@ -6137,9 +6408,9 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.byok.field.description"](): string;
     /**
-      * `Key storage`
+      * `Provider enabled`
       */
-    ["com.affine.settings.workspace.byok.field.storage"](): string;
+    ["com.affine.settings.workspace.byok.field.provider-enabled"](): string;
     /**
       * `API key`
       */
@@ -6149,6 +6420,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.byok.field.endpoint"](): string;
     /**
+      * `API dialect`
+      */
+    ["com.affine.settings.workspace.byok.field.dialect"](): string;
+    /**
+      * `Model ID`
+      */
+    ["com.affine.settings.workspace.byok.field.model-id"](): string;
+    /**
       * `Custom endpoints are disabled by the server administrator. In Self-hosted Admin, enable copilot.byok.allowCustomEndpoint.`
       */
     ["com.affine.settings.workspace.byok.endpoint.custom-disabled"](): string;
@@ -6157,29 +6436,188 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.byok.endpoint.private-disabled"](): string;
     /**
-      * `Primary`
+      * `Leave blank to keep the current key`
       */
-    ["com.affine.settings.workspace.byok.placeholder.key-name"](): string;
+    ["com.affine.settings.workspace.byok.placeholder.keep-current-key"](): string;
     /**
-      * `Workspace fallback key`
+      * `Model ID`
       */
-    ["com.affine.settings.workspace.byok.placeholder.description"](): string;
+    ["com.affine.settings.workspace.byok.placeholder.model-id"](): string;
+    /**
+      * `Search models…`
+      */
+    ["com.affine.settings.workspace.byok.placeholder.search-models"](): string;
+    /**
+      * `Select an API dialect`
+      */
+    ["com.affine.settings.workspace.byok.placeholder.dialect"](): string;
+    /**
+      * `Use a custom API-compatible endpoint`
+      */
+    ["com.affine.settings.workspace.byok.endpoint.use-custom"](): string;
+    /**
+      * `Responses API`
+      */
+    ["com.affine.settings.workspace.byok.dialect.responses"](): string;
+    /**
+      * `Chat Completions API`
+      */
+    ["com.affine.settings.workspace.byok.dialect.chat-completions"](): string;
+    /**
+      * `Include an image generation request when testing (provider charges may apply)`
+      */
+    ["com.affine.settings.workspace.byok.probe.include-image"](): string;
+    /**
+      * `Connection verified`
+      */
+    ["com.affine.settings.workspace.byok.probe.verified"](): string;
+    /**
+      * `Connection failed`
+      */
+    ["com.affine.settings.workspace.byok.probe.failed"](): string;
+    /**
+      * `Recommended`
+      */
+    ["com.affine.settings.workspace.byok.model.recommended"](): string;
+    /**
+      * `This model has already been added.`
+      */
+    ["com.affine.settings.workspace.byok.model.duplicate-id"](): string;
+    /**
+      * `Not tested`
+      */
+    ["com.affine.settings.workspace.byok.model.status.not-tested"](): string;
+    /**
+      * `Verified`
+      */
+    ["com.affine.settings.workspace.byok.model.status.verified"](): string;
+    /**
+      * `Failed`
+      */
+    ["com.affine.settings.workspace.byok.model.status.failed"](): string;
+    /**
+      * `Partially verified · {{verified}} of {{total}}`
+      */
+    ["com.affine.settings.workspace.byok.model.status.partially-verified"](options: Readonly<{
+        verified: string;
+        total: string;
+    }>): string;
+    /**
+      * `Disabled`
+      */
+    ["com.affine.settings.workspace.byok.model.status.disabled"](): string;
+    /**
+      * `Use this model for`
+      */
+    ["com.affine.settings.workspace.byok.model.use-this-for"](): string;
+    /**
+      * `Chat & writing`
+      */
+    ["com.affine.settings.workspace.byok.model.use.chat"](): string;
+    /**
+      * `Actions`
+      */
+    ["com.affine.settings.workspace.byok.model.use.actions"](): string;
+    /**
+      * `Structured output`
+      */
+    ["com.affine.settings.workspace.byok.model.use.structured"](): string;
+    /**
+      * `Image understanding`
+      */
+    ["com.affine.settings.workspace.byok.model.use.vision"](): string;
+    /**
+      * `Image generation`
+      */
+    ["com.affine.settings.workspace.byok.model.use.image"](): string;
+    /**
+      * `Transcription`
+      */
+    ["com.affine.settings.workspace.byok.model.use.transcript"](): string;
+    /**
+      * `Workspace indexing`
+      */
+    ["com.affine.settings.workspace.byok.model.use.embedding"](): string;
+    /**
+      * `Search reranking`
+      */
+    ["com.affine.settings.workspace.byok.model.use.rerank"](): string;
     /**
       * `Add key`
       */
     ["com.affine.settings.workspace.byok.action.add-key"](): string;
     /**
-      * `Test key`
+      * `Test connection`
       */
-    ["com.affine.settings.workspace.byok.action.test-key"](): string;
+    ["com.affine.settings.workspace.byok.action.test-connection"](): string;
+    /**
+      * `Test`
+      */
+    ["com.affine.settings.workspace.byok.action.test"](): string;
+    /**
+      * `Testing…`
+      */
+    ["com.affine.settings.workspace.byok.action.testing"](): string;
     /**
       * `Cancel`
       */
     ["com.affine.settings.workspace.byok.action.cancel"](): string;
     /**
-      * `Save key`
+      * `Connect`
       */
-    ["com.affine.settings.workspace.byok.action.save-key"](): string;
+    ["com.affine.settings.workspace.byok.action.connect"](): string;
+    /**
+      * `Connecting…`
+      */
+    ["com.affine.settings.workspace.byok.action.connecting"](): string;
+    /**
+      * `Save changes`
+      */
+    ["com.affine.settings.workspace.byok.action.save-changes"](): string;
+    /**
+      * `Add model`
+      */
+    ["com.affine.settings.workspace.byok.action.add-model"](): string;
+    /**
+      * `Add {{count}} models`
+      */
+    ["com.affine.settings.workspace.byok.action.add-selected-models"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Save model`
+      */
+    ["com.affine.settings.workspace.byok.action.save-model"](): string;
+    /**
+      * `Enable {{model}}`
+      */
+    ["com.affine.settings.workspace.byok.action.enable-model"](options: {
+        readonly model: string;
+    }): string;
+    /**
+      * `Disable {{model}}`
+      */
+    ["com.affine.settings.workspace.byok.action.disable-model"](options: {
+        readonly model: string;
+    }): string;
+    /**
+      * `Options for {{model}}`
+      */
+    ["com.affine.settings.workspace.byok.action.model-options"](options: {
+        readonly model: string;
+    }): string;
+    /**
+      * `Move up`
+      */
+    ["com.affine.settings.workspace.byok.action.move-up"](): string;
+    /**
+      * `Move down`
+      */
+    ["com.affine.settings.workspace.byok.action.move-down"](): string;
+    /**
+      * `Remove`
+      */
+    ["com.affine.settings.workspace.byok.action.remove"](): string;
     /**
       * `Clear all BYOK keys`
       */
@@ -6228,6 +6666,14 @@ export function useAFFiNEI18N(): {
       * `BYOK keys not cleared`
       */
     ["com.affine.settings.workspace.byok.notify.clear-failed.title"](): string;
+    /**
+      * `BYOK settings changed`
+      */
+    ["com.affine.settings.workspace.byok.notify.reload-required.title"](): string;
+    /**
+      * `Reload the settings and try again.`
+      */
+    ["com.affine.settings.workspace.byok.notify.reload-required.message"](): string;
     /**
       * `Please try again.`
       */
@@ -7984,6 +8430,42 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.m.explorer.collection.new-dialog-title"](): string;
     /**
+      * `No documents yet`
+      */
+    ["com.affine.m.explorer.empty.docs.title"](): string;
+    /**
+      * `Create your first document to start capturing ideas and organizing knowledge.`
+      */
+    ["com.affine.m.explorer.empty.docs.description"](): string;
+    /**
+      * `New Document`
+      */
+    ["com.affine.m.explorer.empty.docs.action"](): string;
+    /**
+      * `No collections yet`
+      */
+    ["com.affine.m.explorer.empty.collections.title"](): string;
+    /**
+      * `Create a collection to organize related content in one place.`
+      */
+    ["com.affine.m.explorer.empty.collections.description"](): string;
+    /**
+      * `New Collection`
+      */
+    ["com.affine.m.explorer.empty.collections.action"](): string;
+    /**
+      * `No tags yet`
+      */
+    ["com.affine.m.explorer.empty.tags.title"](): string;
+    /**
+      * `Add tags to your documents for easier organization and discovery.`
+      */
+    ["com.affine.m.explorer.empty.tags.description"](): string;
+    /**
+      * `New Tag`
+      */
+    ["com.affine.m.explorer.empty.tags.action"](): string;
+    /**
       * `Rename`
       */
     ["com.affine.m.explorer.doc.rename"](): string;
@@ -8480,6 +8962,22 @@ export function useAFFiNEI18N(): {
       * `Join Failed`
       */
     ["com.affine.fail-to-join-workspace.title"](): string;
+    /**
+      * `This invitation is for another account`
+      */
+    ["com.affine.invitation.account-mismatch.title"](): string;
+    /**
+      * `You're signed in with an account that wasn't invited. Sign in with the account that received this invitation to continue.`
+      */
+    ["com.affine.invitation.account-mismatch.description"](): string;
+    /**
+      * `Sign in with another account`
+      */
+    ["com.affine.invitation.account-mismatch.switch-account"](): string;
+    /**
+      * `Back to AFFiNE`
+      */
+    ["com.affine.invitation.account-mismatch.back-to-affine"](): string;
     /**
       * `Please contact your workspace owner to add more seats.`
       */
@@ -9299,9 +9797,21 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.realtime.connection-error.title"](): string;
     /**
-      * `Check that your server proxy forwards /socket.io over WebSocket or HTTP polling.`
+      * `The real-time connection could not authenticate your session. Sign in again if the problem continues.`
       */
-    ["com.affine.realtime.connection-error.message"](): string;
+    ["com.affine.realtime.connection-error.authentication"](): string;
+    /**
+      * `The server cannot be reached. Check your network connection and server proxy.`
+      */
+    ["com.affine.realtime.connection-error.network"](): string;
+    /**
+      * `The server rejected the real-time request. Try again later.`
+      */
+    ["com.affine.realtime.connection-error.server"](): string;
+    /**
+      * `The server did not respond in time. AFFiNE will keep trying to reconnect.`
+      */
+    ["com.affine.realtime.connection-error.timeout"](): string;
     /**
       * `An internal error occurred.`
       */
@@ -9681,6 +10191,10 @@ export function useAFFiNEI18N(): {
       */
     ["error.INVALID_INVITATION"](): string;
     /**
+      * `This invitation belongs to another account.`
+      */
+    ["error.INVITATION_ACCOUNT_MISMATCH"](): string;
+    /**
       * `No more seat available in the Space {{spaceId}}.`
       */
     ["error.NO_MORE_SEAT"](options: {
@@ -9848,40 +10362,6 @@ export function useAFFiNEI18N(): {
         message: string;
     }>): string;
     /**
-      * `Invalid copilot context {{contextId}}.`
-      */
-    ["error.COPILOT_INVALID_CONTEXT"](options: {
-        readonly contextId: string;
-    }): string;
-    /**
-      * `File {{fileName}} is not supported to use as context: {{message}}`
-      */
-    ["error.COPILOT_CONTEXT_FILE_NOT_SUPPORTED"](options: Readonly<{
-        fileName: string;
-        message: string;
-    }>): string;
-    /**
-      * `Failed to modify context {{contextId}}: {{message}}`
-      */
-    ["error.COPILOT_FAILED_TO_MODIFY_CONTEXT"](options: Readonly<{
-        contextId: string;
-        message: string;
-    }>): string;
-    /**
-      * `Failed to match context {{contextId}} with "%7B%7Bcontent%7D%7D": {{message}}`
-      */
-    ["error.COPILOT_FAILED_TO_MATCH_CONTEXT"](options: Readonly<{
-        contextId: string;
-        message: string;
-    }>): string;
-    /**
-      * `Failed to match context in workspace {{workspaceId}} with "%7B%7Bcontent%7D%7D": {{message}}`
-      */
-    ["error.COPILOT_FAILED_TO_MATCH_GLOBAL_CONTEXT"](options: Readonly<{
-        workspaceId: string;
-        message: string;
-    }>): string;
-    /**
       * `Embedding feature is disabled, please contact the administrator to enable it in the workspace settings.`
       */
     ["error.COPILOT_EMBEDDING_DISABLED"](): string;
@@ -9889,6 +10369,28 @@ export function useAFFiNEI18N(): {
       * `Embedding feature not available, you may need to install pgvector extension to your database`
       */
     ["error.COPILOT_EMBEDDING_UNAVAILABLE"](): string;
+    /**
+      * `Selected sources are still processing. Try again shortly.`
+      */
+    ["error.COPILOT_SELECTED_SOURCES_PROCESSING"](): string;
+    /**
+      * `Selected sources could not be processed. Remove the failed source or try again.`
+      */
+    ["error.COPILOT_SELECTED_SOURCES_FAILED"](): string;
+    /**
+      * `Selected sources are not available for AI retrieval.`
+      */
+    ["error.COPILOT_SELECTED_SOURCES_UNAVAILABLE"](): string;
+    /**
+      * `Too many or too much content was selected. Select fewer sources and try again.`
+      */
+    ["error.COPILOT_SELECTED_SOURCES_LIMIT_EXCEEDED"](): string;
+    /**
+      * `Failed to add workspace artifact: {{message}}`
+      */
+    ["error.COPILOT_FAILED_TO_ADD_WORKSPACE_ARTIFACT"](options: {
+        readonly message: string;
+    }): string;
     /**
       * `Transcription job already exists`
       */
@@ -9901,12 +10403,6 @@ export function useAFFiNEI18N(): {
       * `Audio not provided.`
       */
     ["error.COPILOT_TRANSCRIPTION_AUDIO_NOT_PROVIDED"](): string;
-    /**
-      * `Failed to add workspace file embedding: {{message}}`
-      */
-    ["error.COPILOT_FAILED_TO_ADD_WORKSPACE_FILE_EMBEDDING"](options: {
-        readonly message: string;
-    }): string;
     /**
       * `You have exceeded your blob size quota.`
       */
@@ -10030,6 +10526,24 @@ export function useAFFiNEI18N(): {
     ["error.INVALID_APP_CONFIG_INPUT"](options: {
         readonly message: string;
     }): string;
+    /**
+      * `Search index for Space {{spaceId}} is not ready yet.`
+      */
+    ["error.SEARCH_INDEX_NOT_READY"](options: {
+        readonly spaceId: string;
+    }): string;
+    /**
+      * `Search permissions are still syncing. Please try again shortly.`
+      */
+    ["error.SEARCH_PERMISSION_SYNCING"](): string;
+    /**
+      * `Search provider is temporarily unavailable.`
+      */
+    ["error.SEARCH_PROVIDER_UNAVAILABLE"](): string;
+    /**
+      * `Search index is temporarily unavailable.`
+      */
+    ["error.SEARCH_INDEX_FAILED"](): string;
     /**
       * `Search provider not found.`
       */
@@ -10381,6 +10895,14 @@ export const TypedTrans: {
       * `Your account will be inaccessible, and your personal space on the server will be permanently deleted. You can remove local data by uninstalling the app or clearing your browser storage. <1>This action is irreversible.</1>`
       */
     ["com.affine.setting.account.delete.confirm-delete-description-2"]: ComponentType<TypedTransProps<Readonly<{}>, {
+        ["1"]: JSX.Element;
+    }>>;
+    /**
+      * `Type <1>{{email}}</1> to confirm account deletion.`
+      */
+    ["com.affine.setting.account.delete.email-confirm-description"]: ComponentType<TypedTransProps<{
+        readonly email: string;
+    }, {
         ["1"]: JSX.Element;
     }>>;
     /**

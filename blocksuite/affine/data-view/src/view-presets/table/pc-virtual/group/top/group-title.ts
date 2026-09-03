@@ -64,13 +64,15 @@ export const GroupTitle = (
       ${icon} ${renderUniLit(view, props)} ${columnName}
       ${GroupHeaderCount(groupData)}
     </div>
-    ${!ops.readonly
-      ? html` <div class="${opsClass}">
-          ${/* GLYPH PATCH: removed pc-virtual group-title add row button */ nothing}
-          <div @click="${ops.clickOps}" class="${groupHeaderOp}">
-            ${MoreHorizontalIcon()}
-          </div>
-        </div>`
-      : nothing}
+    ${
+      !ops.readonly
+        ? html` <div class="${opsClass}">
+            ${/* GLYPH PATCH: removed pc-virtual group-title add row button */ nothing}
+            <div @click="${ops.clickOps}" class="${groupHeaderOp}">
+              ${MoreHorizontalIcon()}
+            </div>
+          </div>`
+        : nothing
+    }
   `;
 };
